@@ -1,6 +1,6 @@
 import { resolveDonnaConfig } from "../src/config.js";
 import { OKFScanner } from "../src/okf/scanner.js";
-import { buildIngressContext, extractPromptTokens } from "../src/context/ingress.js";
+import { buildIngressContext, extractCandidatePhrases } from "../src/context/ingress.js";
 
 async function runSmokeTest() {
   console.log("=== SMOKE TEST: DONNA CONTEXT ENGINE ===");
@@ -23,7 +23,7 @@ async function runSmokeTest() {
   const testPrompt = "Saada anak saya sepertinya hangat badannya, coba bandingkan thermogun ini";
   console.log(`\n4. Simulating user prompt: "${testPrompt}"`);
 
-  const tokens = extractPromptTokens(testPrompt);
+  const tokens = extractCandidatePhrases(testPrompt);
   console.log(`- Extracted Tokens: [${tokens.join(", ")}]`);
 
   const ingressStart = performance.now();

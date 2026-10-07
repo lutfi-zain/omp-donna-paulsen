@@ -226,18 +226,18 @@ export class OKFScanner {
   public findMatchingConcepts(tokens: string[]): OKFConcept[] {
     const all = this.getAllConcepts();
     const matched = new Set<OKFConcept>();
-    const normalizedTokens = tokens
-      .map((t) => t.toLowerCase().trim())
-      .filter((t) => t.length >= 3);
 
     for (const concept of all) {
       const titleLower = concept.title.toLowerCase();
       const slugLower = concept.slug.toLowerCase();
-      const titleWords = titleLower.split(/[\s\-_/.,:;()]+/);
+      const titleWords = titleLower
+        .split(/[\s\-_/.,:;()]+/)
+        .filter((w) => w.length >= 4 && !["agents", "json", "yaml", "index"].includes(w));
+
       const normTitle = titleLower.replace(/th/g, "t").replace(/[-\s]/g, "");
       const normSlug = slugLower.replace(/th/g, "t").replace(/[-\s]/g, "");
 
-      for (const token of normalizedTokens) {
+      for (const token of tokens) {
         const isPhrase = token.includes(" ");
         const normToken = token.replace(/th/g, "t").replace(/[-\s]/g, "");
 
@@ -252,13 +252,13 @@ export class OKFScanner {
           break;
         }
 
-        // 2. Word-boundary match (whole word)
-        if (titleWords.includes(token)) {
+        // 2. Significant discrete word in title (>= 4 chars)
+        if (token.length >= 4 && titleWords.includes(token)) {
           matched.add(concept);
           break;
         }
 
-        // 3. Multi-word phrase substring match
+        // 3. Multi-word compound phrase match
         if (isPhrase && (titleLower.includes(token) || normTitle.includes(normToken))) {
           matched.add(concept);
           break;

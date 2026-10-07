@@ -1,89 +1,13 @@
 import type { DonnaConfig, IngressContextResult, OKFConcept } from "../types.js";
 import type { OKFScanner } from "../okf/scanner.js";
 
-const STOPWORDS: Record<string, true> = {
-  ada: true,
-  adalah: true,
-  agent: true,
-  agents: true,
-  akan: true,
-  aku: true,
-  anak: true,
-  apa: true,
-  apakah: true,
-  atau: true,
-  bagaimana: true,
-  bahkan: true,
-  bahwa: true,
-  baik: true,
-  banyak: true,
-  bisa: true,
-  buat: true,
-  coba: true,
-  dan: true,
-  dari: true,
-  dengan: true,
-  di: true,
-  dia: true,
-  doang: true,
-  gimana: true,
-  gitu: true,
-  ini: true,
-  itu: true,
-  jadinya: true,
-  jika: true,
-  juga: true,
-  kalau: true,
-  kamu: true,
-  karena: true,
-  ke: true,
-  kita: true,
-  lagi: true,
-  mana: true,
-  mau: true,
-  misal: true,
-  mungkin: true,
-  nanti: true,
-  ngga: true,
-  omp: true,
-  pada: true,
-  pengen: true,
-  pilih: true,
-  sama: true,
-  saya: true,
-  sebagai: true,
-  sebuah: true,
-  seperti: true,
-  sepertinya: true,
-  soalnya: true,
-  sudah: true,
-  tapi: true,
-  tentang: true,
-  tidak: true,
-  tuh: true,
-  untuk: true,
-  yang: true,
-};
-
-export function extractPromptTokens(prompt: string): string[] {
-  // Extract words and 2-grams, stripping punctuation
-  const clean = prompt
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const words = clean.split(" ").filter((w) => w.length >= 3 && !STOPWORDS[w]);
-  const tokens: string[] = [...words];
-
-  // Generate 2-grams for compound names (e.g., "tech lead", "siloam hospitals")
-  for (let i = 0; i < words.length - 1; i++) {
-    tokens.push(`${words[i]} ${words[i + 1]}`);
-  }
-
-  return tokens;
-}
-
+/**
+ * Ingress Context Engine:
+ * Analyzes incoming user prompts against the active Vault Entity Dictionary
+ * and injects relevant context without blocking the LLM generation loop.
+ *
+ * Designed to be 100% language-agnostic: zero hardcoded stopwords or language heuristics.
+ */
 export function buildIngressContext(
   prompt: string,
   scanner: OKFScanner,
@@ -98,11 +22,13 @@ export function buildIngressContext(
     };
   }
 
-  const tokens = extractPromptTokens(prompt);
-  const matchedConcepts = scanner.findMatchingConcepts(tokens);
+  // 1. Extract candidate phrases from the user prompt (unigrams & bigrams)
+  const candidatePhrases = extractCandidatePhrases(prompt);
+
+  // 2. Query the vault's dynamic entity index (driven entirely by user vault data)
+  const matchedConcepts = scanner.findMatchingConcepts(candidatePhrases);
   const activeCommitments = scanner.getActiveCommitments(2);
 
-  // If nothing matched and no imminent commitments, return empty
   if (matchedConcepts.length === 0 && activeCommitments.length === 0) {
     return {
       matchedConcepts: [],
@@ -112,7 +38,7 @@ export function buildIngressContext(
     };
   }
 
-  // Assemble high-density XML block
+  // 3. Assemble high-density XML context payload
   const lines: string[] = ["<donna-context>"];
   lines.push(`  <meta bundle="${scanner.getBundlePath()}" principal="${config.principalName}" />`);
 
@@ -147,15 +73,36 @@ export function buildIngressContext(
   lines.push("</donna-context>");
   const xmlContext = lines.join("\n");
 
-  // Rough token estimate: ~4 chars per token
-  const tokenEstimate = Math.ceil(xmlContext.length / 4);
-
   return {
     matchedConcepts,
     activeCommitments,
     xmlContext,
-    tokenEstimate,
+    tokenEstimate: Math.ceil(xmlContext.length / 4),
   };
+}
+
+/**
+ * Tokenize prompt into candidate search phrases (clean words and 2-grams).
+ * Completely language-agnostic: relies on Unicode word segmentation without manual dictionaries.
+ */
+export function extractCandidatePhrases(text: string): string[] {
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return [];
+
+  const rawWords = normalized.split(" ").filter((w) => w.length >= 2);
+  const phrases: string[] = [...rawWords];
+
+  // Also include 2-word combinations for compound entities (e.g. "tech lead", "thermo gun")
+  for (let i = 0; i < rawWords.length - 1; i++) {
+    phrases.push(`${rawWords[i]} ${rawWords[i + 1]}`);
+  }
+
+  return phrases;
 }
 
 function escapeXml(unsafe: string): string {
