@@ -233,26 +233,38 @@ export class OKFScanner {
     for (const concept of all) {
       const titleLower = concept.title.toLowerCase();
       const slugLower = concept.slug.toLowerCase();
+      const titleWords = titleLower.split(/[\s\-_/.,:;()]+/);
       const normTitle = titleLower.replace(/th/g, "t").replace(/[-\s]/g, "");
       const normSlug = slugLower.replace(/th/g, "t").replace(/[-\s]/g, "");
 
       for (const token of normalizedTokens) {
+        const isPhrase = token.includes(" ");
         const normToken = token.replace(/th/g, "t").replace(/[-\s]/g, "");
 
+        // 1. Exact match on title or slug
         if (
           titleLower === token ||
           slugLower === token ||
           normTitle === normToken ||
-          normSlug === normToken ||
-          titleLower.includes(token) ||
-          normTitle.includes(normToken) ||
-          (normToken.length >= 4 && normSlug.includes(normToken))
+          normSlug === normToken
         ) {
           matched.add(concept);
           break;
         }
 
-        // Check tags
+        // 2. Word-boundary match (whole word)
+        if (titleWords.includes(token)) {
+          matched.add(concept);
+          break;
+        }
+
+        // 3. Multi-word phrase substring match
+        if (isPhrase && (titleLower.includes(token) || normTitle.includes(normToken))) {
+          matched.add(concept);
+          break;
+        }
+
+        // 4. Tag matching
         if (
           concept.tags.some(
             (tag) =>

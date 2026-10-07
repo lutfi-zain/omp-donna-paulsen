@@ -1,5 +1,7 @@
 export interface DonnaConfig {
   bundlePath: string;
+  globalVaultPath: string;
+  scope: "project" | "global";
   personaName: string;
   principalName: string;
   contextPulling: boolean;

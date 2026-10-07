@@ -4,35 +4,50 @@ import os from "node:os";
 import type { DonnaConfig } from "./types.js";
 
 export function resolveDonnaConfig(cwd: string, overrides: Partial<DonnaConfig> = {}): DonnaConfig {
+  const globalVaultPath =
+    process.env.DONNA_GLOBAL_VAULT ||
+    path.join(os.homedir(), ".donna", "vault", ".okf");
+
   const envBundle = process.env.DONNA_BUNDLE_PATH;
   let resolvedBundle = "";
+  let scope: "project" | "global" = "global";
 
   if (overrides.bundlePath) {
     resolvedBundle = path.isAbsolute(overrides.bundlePath)
       ? overrides.bundlePath
       : path.resolve(cwd, overrides.bundlePath);
+    scope = "project";
   } else if (envBundle) {
     resolvedBundle = path.isAbsolute(envBundle)
       ? envBundle
       : path.resolve(cwd, envBundle);
+    scope = "project";
   } else {
-    const cwdOkf = path.join(cwd, ".okf");
-    if (fs.existsSync(cwdOkf) && fs.statSync(cwdOkf).isDirectory()) {
-      resolvedBundle = cwdOkf;
+    // 1. Ancestor Walk: look for project vault from cwd climbing upwards
+    const projectVault = findNearestProjectVault(cwd);
+    if (projectVault) {
+      resolvedBundle = projectVault;
+      scope = "project";
     } else {
-      const homeBrain = path.join(os.homedir(), ".donna", "brain");
-      resolvedBundle = homeBrain;
+      // 2. Fallback: User Global Vault
+      resolvedBundle = globalVaultPath;
+      scope = "global";
     }
   }
 
-  // Detect principal name if set to auto or empty
+  // Detect principal name
   let principalName = overrides.principalName || process.env.DONNA_PRINCIPAL || "";
   if (!principalName || principalName === "auto") {
-    principalName = detectPrincipalName(resolvedBundle) || "Lutfi";
+    principalName =
+      detectPrincipalName(resolvedBundle) ||
+      detectPrincipalName(globalVaultPath) ||
+      "Lutfi";
   }
 
   return {
     bundlePath: resolvedBundle,
+    globalVaultPath,
+    scope,
     personaName: overrides.personaName || process.env.DONNA_PERSONA || "Donna",
     principalName,
     contextPulling: overrides.contextPulling ?? true,
@@ -45,6 +60,31 @@ export function resolveDonnaConfig(cwd: string, overrides: Partial<DonnaConfig> 
   };
 }
 
+/**
+ * Climb upward from current directory to repository root / home directory
+ * looking for the nearest non-empty .okf directory (mirroring OMP's AGENTS.md resolution).
+ */
+export function findNearestProjectVault(startDir: string): string | null {
+  let current = path.resolve(startDir);
+  const home = path.resolve(os.homedir());
+
+  while (true) {
+    const candidate = path.join(current, ".okf");
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+
+    // Stop climbing if we hit home or filesystem root
+    if (current === home || current === path.dirname(current)) {
+      break;
+    }
+
+    current = path.dirname(current);
+  }
+
+  return null;
+}
+
 function detectPrincipalName(bundlePath: string): string | null {
   try {
     const profileDir = path.join(bundlePath, "profile");
@@ -54,7 +94,6 @@ function detectPrincipalName(bundlePath: string): string | null {
     for (const file of files) {
       if (file.endsWith(".md") && file !== "index.md") {
         const basename = path.basename(file, ".md");
-        // Capitalize first letter
         return basename.charAt(0).toUpperCase() + basename.slice(1);
       }
     }
