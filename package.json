@@ -22,6 +22,7 @@
   },
   "files": [
     "src/",
+    "skills/",
     "README.md",
     "package.json"
   ],
@@ -31,11 +32,17 @@
   "omp": {
     "extensions": [
       "./src/index.ts"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "pi": {
     "extensions": [
       "./src/index.ts"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "peerDependencies": {
