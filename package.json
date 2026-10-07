@@ -1,0 +1,48 @@
+{
+  "name": "omp-donna-paulsen",
+  "version": "0.1.0",
+  "description": "Donna Paulsen Assistant: Persona, Agentic Context Engineering & Autonomous Memory Runtime for OMP",
+  "main": "src/index.ts",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "omp-plugin",
+    "omp-extension",
+    "agentic-rag",
+    "context-engineering",
+    "second-brain",
+    "donna-paulsen",
+    "personal-assistant"
+  ],
+  "author": "Lutfi Zain <lutfidmz@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lutfi-zain/omp-donna-paulsen.git"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "package.json"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "omp": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@oh-my-pi/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
