@@ -148,9 +148,10 @@ export class OKFScanner {
     const lines = yamlText.split("\n");
 
     for (const line of lines) {
+      // Only parse top-level YAML keys (zero indentation)
+      if (!line || line.startsWith(" ") || line.startsWith("\t")) continue;
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) continue;
-
       const colonIdx = trimmed.indexOf(":");
       if (colonIdx === -1) continue;
 
