@@ -65,7 +65,7 @@ Donna Paulsen Assistant eliminates this by decoupling **Cognition** from **Memor
 
 ## 🚀 Quickstart: Setup on a Fresh Machine
 
-Donna Paulsen Assistant is designed to be set up on a brand-new machine for any user in **under 10 seconds**.
+Donna Paulsen Assistant is designed with **zero-friction onboarding**.
 
 ### Prerequisites
 - [Oh My Pi (`omp`)](https://omp.sh) installed
@@ -78,22 +78,27 @@ omp plugin install github:lutfi-zain/omp-donna-paulsen
 ```
 *(Or clone locally and link via `omp plugin link .`)*
 
-### Step 2: Initialize a New User Vault
-Navigate to any directory where you want to keep your personal second brain (e.g., `~/my-assistant`):
-```bash
-mkdir ~/my-assistant && cd ~/my-assistant
-```
+---
 
-Launch `omp` and run the built-in scaffolding command:
-```text
+### Step 2: Choose Your Workflow
+
+#### Option A: Zero-Config Global Assistant (Instant)
+You don't need to configure anything. Just open `omp` in **any** directory:
+```bash
+omp
+```
+Donna will automatically detect that no vault exists, auto-bootstrap your **Global Executive Vault** at `~/.donna/vault/.okf`, auto-detect your username from Git/OS, and welcome you immediately:
+> *"Donna Paulsen: I'm Donna. I've set up your executive vault at ~/.donna/vault. I know everything."*
+
+#### Option B: Dedicated Project-Scoped Vault
+If you want an isolated vault specifically for a particular client, company, or project:
+```bash
+cd ~/my-new-project
+omp
+# Then in the OMP session:
 /donna init "Your Name"
 ```
-
-**That's it.** Donna automatically scaffolds:
-- `.okf/` complete knowledge bundle (profile, persona, people, projects, goals, commitments, decisions, journal).
-- `AGENTS.md` tailored behavior contract for your name.
-- Persona dossier of Donna Paulsen (`.okf/persona/donna-paulsen.md`).
-
+Donna will scaffold a project-local `.okf/` bundle in that folder, ensuring project secrets and notes never mix with your global vault.
 ---
 
 ## 🛠️ Built-in Native Tools

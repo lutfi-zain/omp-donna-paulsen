@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { resolveDonnaConfig } from "./config.js";
 import { OKFScanner } from "./okf/scanner.js";
@@ -21,10 +22,28 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     config = resolveDonnaConfig(ctx.cwd);
     scanner.setBundlePath(config.bundlePath);
     egressWorker.updateConfig(config);
-    scanner.scan();
 
+    // Zero-config first run: if no vault exists yet, Donna proactively bootstraps the global vault!
+    if (!scanner.isBundleAvailable()) {
+      const vaultTargetDir = path.dirname(config.globalVaultPath);
+      initializeDonnaVault(vaultTargetDir, config.principalName);
+      config = resolveDonnaConfig(ctx.cwd);
+      scanner.setBundlePath(config.bundlePath);
+      egressWorker.updateConfig(config);
+      scanner.scan();
+
+      if (ctx.hasUI) {
+        ctx.ui.notify(
+          `Donna Paulsen: I'm Donna. I've set up your executive vault at ${vaultTargetDir}. I know everything.`,
+          "info"
+        );
+      }
+      return;
+    }
+
+    scanner.scan();
     const count = scanner.getAllConcepts().length;
-    if (ctx.hasUI && scanner.isBundleAvailable()) {
+    if (ctx.hasUI) {
       ctx.ui.notify(
         `Donna Paulsen Assistant: ${count} concepts active (${config.principalName})`,
         "info"

@@ -41,7 +41,8 @@ export function resolveDonnaConfig(cwd: string, overrides: Partial<DonnaConfig> 
     principalName =
       detectPrincipalName(resolvedBundle) ||
       detectPrincipalName(globalVaultPath) ||
-      "Lutfi";
+      detectSystemUserName() ||
+      "Principal";
   }
 
   return {
@@ -100,5 +101,20 @@ function detectPrincipalName(bundlePath: string): string | null {
   } catch {
     // Ignore detection error
   }
+  return null;
+}
+
+function detectSystemUserName(): string | null {
+  try {
+    const { execSync } = require("node:child_process");
+    const gitName = execSync("git config user.name", { encoding: "utf-8", timeout: 500 }).trim();
+    if (gitName) return gitName;
+  } catch {}
+  try {
+    const user = os.userInfo().username;
+    if (user && user !== "root") {
+      return user.charAt(0).toUpperCase() + user.slice(1);
+    }
+  } catch {}
   return null;
 }
