@@ -65,7 +65,7 @@ WORKSPACE_CATALOG: Dict[str, Dict[str, str]] = {
         "description": "Alias untuk reedrich-mcp.",
     },
     "donna": {
-        "path": "/home/ubuntu/projects/donna-paulsen",
+        "path": "/home/ubuntu/.donna/vault",
         "title": "Donna Paulsen Second Brain",
         "description": "Repositori Donna sendiri.",
     },
