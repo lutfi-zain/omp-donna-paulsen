@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import type { DonnaConfig } from "./types.js";
+import type { DonnaConfig, HindsightConfig } from "./types.js";
 
 export function resolveDonnaConfig(cwd: string, overrides: Partial<DonnaConfig> = {}): DonnaConfig {
   const globalVaultPath =
@@ -45,6 +45,9 @@ export function resolveDonnaConfig(cwd: string, overrides: Partial<DonnaConfig> 
       "Principal";
   }
 
+  // Resolve Hindsight config from OMP agent config or env
+  const hindsight = resolveHindsightConfig();
+
   return {
     bundlePath: resolvedBundle,
     globalVaultPath,
@@ -58,7 +61,41 @@ export function resolveDonnaConfig(cwd: string, overrides: Partial<DonnaConfig> 
     autoJournal: overrides.autoJournal ?? true,
     autoGitCommit: overrides.autoGitCommit ?? true,
     consolidationDelayMs: overrides.consolidationDelayMs ?? 250,
+    hindsight,
   };
+}
+
+function resolveHindsightConfig(): HindsightConfig | null {
+  // Check env vars first
+  const envUrl = process.env.HINDSIGHT_API_URL;
+  const envToken = process.env.HINDSIGHT_API_TOKEN;
+  if (envUrl && envToken) {
+    return {
+      apiUrl: envUrl,
+      apiToken: envToken,
+      bankId: process.env.HINDSIGHT_BANK_ID || "omp",
+    };
+  }
+
+  // Try reading from OMP agent config.yml
+  try {
+    const configPath = path.join(os.homedir(), ".omp", "agent", "config.yml");
+    if (!fs.existsSync(configPath)) return null;
+    const raw = fs.readFileSync(configPath, "utf-8");
+
+    // Simple extraction — avoid YAML parser dependency
+    const urlMatch = raw.match(/apiUrl:\s*(.+)/);
+    const tokenMatch = raw.match(/apiToken:\s*(.+)/);
+    if (!urlMatch || !tokenMatch) return null;
+
+    const apiUrl = urlMatch[1].trim();
+    const apiToken = tokenMatch[1].trim();
+    if (!apiUrl.startsWith("http") || !apiToken.startsWith("hs_")) return null;
+
+    return { apiUrl, apiToken, bankId: "omp" };
+  } catch {
+    return null;
+  }
 }
 
 /**

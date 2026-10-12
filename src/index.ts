@@ -4,6 +4,7 @@ import { resolveDonnaConfig } from "./config.js";
 import { OKFScanner } from "./okf/scanner.js";
 import { buildIngressContext } from "./context/ingress.js";
 import { EgressMemoryWorker } from "./memory/egress.js";
+import { syncChangedConcepts, recallFromHindsight } from "./memory/hindsight-sync.js";
 import { registerDonnaTools } from "./tools/index.js";
 import { initializeDonnaVault } from "./init.js";
 
@@ -14,6 +15,7 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
   const scanner = new OKFScanner(config.bundlePath);
   const egressWorker = new EgressMemoryWorker(config);
 
+  let lastSyncMs = 0;
   // Initial warm-up scan
   scanner.scan();
 
@@ -54,7 +56,9 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
   let currentTurnPrompt = "";
   let currentTurnResponse = "";
 
-  // Hot-Path Ingress: before_agent_start (< 15ms)
+  // Hot-Path Ingress: before_agent_start
+  // 1. Entity resolution from OKF (< 5ms) — people, orgs, commitments
+  // 2. Hindsight recall (< 500ms) — topical semantic memory
   pi.on("before_agent_start", async (event) => {
     currentTurnPrompt = typeof event.prompt === "string" ? event.prompt : "";
     currentTurnResponse = "";
@@ -66,13 +70,29 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     const promptText = typeof event.prompt === "string" ? event.prompt : "";
     if (!promptText) return;
 
+    // Layer 1: OKF entity resolution (people, orgs, commitments — 0% noise)
     const ingress = buildIngressContext(promptText, scanner, config);
-    if (!ingress.xmlContext) return;
+
+    // Layer 2: Hindsight topical recall (semantic + temporal + graph)
+    let hindsightBlock = "";
+    if (config.hindsight) {
+      const recalled = await recallFromHindsight(promptText, config);
+      if (recalled.length > 0) {
+        hindsightBlock = [
+          "<donna-recall source=\"hindsight\">",
+          ...recalled,
+          "</donna-recall>",
+        ].join("\n");
+      }
+    }
+
+    const combined = [ingress.xmlContext, hindsightBlock].filter(Boolean).join("\n");
+    if (!combined) return;
 
     return {
       message: {
         customType: "donna-context-injected",
-        content: ingress.xmlContext,
+        content: combined,
         display: false,
         attribution: "agent",
       },
@@ -103,6 +123,13 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     // Use managed timer for isolation
     ctx.setTimeout(async () => {
       await egressWorker.processQueue();
+
+      // Sync changed OKF concepts to Hindsight (background, non-blocking)
+      if (config.hindsight) {
+        scanner.scan();
+        await syncChangedConcepts(scanner, config, lastSyncMs).catch(() => {});
+        lastSyncMs = Date.now();
+      }
     }, config.consolidationDelayMs);
   });
 

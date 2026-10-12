@@ -1,3 +1,9 @@
+export interface HindsightConfig {
+  apiUrl: string;
+  apiToken: string;
+  bankId: string;
+}
+
 export interface DonnaConfig {
   bundlePath: string;
   globalVaultPath: string;
@@ -11,6 +17,7 @@ export interface DonnaConfig {
   autoJournal: boolean;
   autoGitCommit: boolean;
   consolidationDelayMs: number;
+  hindsight: HindsightConfig | null;
 }
 
 export interface OKFConcept {
