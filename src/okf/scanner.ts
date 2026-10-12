@@ -222,63 +222,88 @@ export class OKFScanner {
   }
 
   /**
-   * Fast entity lookup by tokens/n-grams.
+   * Entity Resolution — not topic search.
+   *
+   * Donna knows people and deadlines. She does NOT compete with Hindsight
+   * on topical/semantic retrieval.
+   *
+   * Matchable concept types (high-touch entities):
+   *   people, organizations, persona, projects, decisions, commitments
+   *
+   * NOT matched (Hindsight handles these):
+   *   knowledge/*, guides, architecture research, playbooks, preferences
+   *
+   * Matching rules (scored, ranked, capped):
+   *   +3  Exact slug or title match
+   *   +2  Person first/last name match (proper noun)
+   *   +1  Bigram phrase found in title
+   *
+   * Max 5 results, sorted by score descending.
    */
   public findMatchingConcepts(tokens: string[]): OKFConcept[] {
-    const all = this.getAllConcepts();
-    const matched = new Set<OKFConcept>();
+    const ENTITY_DIRS = new Set([
+      "people", "organizations", "persona", "projects", "decisions", "commitments",
+    ]);
+    const MAX_RESULTS = 5;
 
-    for (const concept of all) {
+    const scored: { concept: OKFConcept; score: number }[] = [];
+
+    for (const concept of this.cache.values()) {
+      // Only match high-touch entity types
+      const topDir = concept.path.split("/")[0];
+      if (!ENTITY_DIRS.has(topDir)) continue;
+
       const titleLower = concept.title.toLowerCase();
       const slugLower = concept.slug.toLowerCase();
-      const titleWords = titleLower
-        .split(/[\s\-_/.,:;()]+/)
-        .filter((w) => w.length >= 4 && !["agents", "json", "yaml", "index"].includes(w));
-
       const normTitle = titleLower.replace(/th/g, "t").replace(/[-\s]/g, "");
       const normSlug = slugLower.replace(/th/g, "t").replace(/[-\s]/g, "");
 
-      for (const token of tokens) {
-        const isPhrase = token.includes(" ");
-        const normToken = token.replace(/th/g, "t").replace(/[-\s]/g, "");
+      // For people: extract name parts for proper noun matching
+      const isPerson = topDir === "people" || topDir === "persona";
+      const nameParts = isPerson
+        ? titleLower.split(/[\s\-]+/).filter((w) => w.length >= 3)
+        : [];
 
-        // 1. Exact match on title or slug
+      let bestScore = 0;
+
+      for (const token of tokens) {
+        const normToken = token.replace(/th/g, "t").replace(/[-\s]/g, "");
+        const isPhrase = token.includes(" ");
+
+        // Rule 1: Exact slug or title match (+3)
         if (
           titleLower === token ||
           slugLower === token ||
           normTitle === normToken ||
           normSlug === normToken
         ) {
-          matched.add(concept);
-          break;
+          bestScore = Math.max(bestScore, 3);
+          continue;
         }
 
-        // 2. Significant discrete word in title (>= 4 chars)
-        if (token.length >= 4 && titleWords.includes(token)) {
-          matched.add(concept);
-          break;
+        // Rule 2: Person name part match (+2)
+        // Only for people/persona — matches first name, last name, nickname
+        if (isPerson && nameParts.includes(token) && token.length >= 3) {
+          bestScore = Math.max(bestScore, 2);
+          continue;
         }
 
-        // 3. Multi-word compound phrase match
-        if (isPhrase && (titleLower.includes(token) || normTitle.includes(normToken))) {
-          matched.add(concept);
-          break;
+        // Rule 3: Bigram phrase found in title (+1)
+        // Only multi-word tokens to prevent single-word false positives
+        if (isPhrase && titleLower.includes(token)) {
+          bestScore = Math.max(bestScore, 1);
+          continue;
         }
+      }
 
-        // 4. Tag matching
-        if (
-          concept.tags.some(
-            (tag) =>
-              tag.toLowerCase().replace(/th/g, "t").replace(/[-\s]/g, "") === normToken ||
-              tag.toLowerCase() === token
-          )
-        ) {
-          matched.add(concept);
-          break;
-        }
+      if (bestScore > 0) {
+        scored.push({ concept, score: bestScore });
       }
     }
 
-    return Array.from(matched);
+    // Sort by score descending, then by mtime (most recent first)
+    scored.sort((a, b) => b.score - a.score || b.concept.mtime - a.concept.mtime);
+
+    return scored.slice(0, MAX_RESULTS).map((s) => s.concept);
   }
 }
