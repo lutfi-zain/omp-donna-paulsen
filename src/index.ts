@@ -51,8 +51,14 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     }
   });
 
+  let currentTurnPrompt = "";
+  let currentTurnResponse = "";
+
   // Hot-Path Ingress: before_agent_start (< 15ms)
   pi.on("before_agent_start", async (event) => {
+    currentTurnPrompt = typeof event.prompt === "string" ? event.prompt : "";
+    currentTurnResponse = "";
+
     if (!config.contextPulling || !scanner.isBundleAvailable()) {
       return;
     }
@@ -63,8 +69,6 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     const ingress = buildIngressContext(promptText, scanner, config);
     if (!ingress.xmlContext) return;
 
-    // Append high-density context to prompt
-    const basePrompt = typeof event.prompt === "string" ? event.prompt : "";
     return {
       message: {
         customType: "donna-context-injected",
@@ -75,9 +79,26 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     };
   });
 
+  // Collect assistant response text for turn recording
+  pi.on("assistant_message", async (event) => {
+    if (event?.message?.content && Array.isArray(event.message.content)) {
+      for (const block of event.message.content) {
+        if (block && block.type === "text" && typeof block.text === "string") {
+          currentTurnResponse += block.text;
+        }
+      }
+    }
+  });
+
   // Cold-Path Egress: agent_end (asynchronous background consolidation)
   pi.on("agent_end", (event, ctx) => {
     if (!config.autoConsolidate || !scanner.isBundleAvailable()) return;
+
+    if (currentTurnPrompt) {
+      egressWorker.enqueueTurn(Date.now().toString(), currentTurnPrompt, currentTurnResponse);
+      currentTurnPrompt = "";
+      currentTurnResponse = "";
+    }
 
     // Use managed timer for isolation
     ctx.setTimeout(async () => {
