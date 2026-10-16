@@ -3,7 +3,8 @@ import path from "node:path";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import type { DonnaConfig } from "../types.js";
 import type { OKFScanner } from "../okf/scanner.js";
-
+import { recallFromHindsight } from "../memory/hindsight-sync.js";
+import { SessionSearchEngine } from "../search/session-search.js";
 export function registerDonnaTools(
   pi: ExtensionAPI,
   scanner: OKFScanner,
@@ -164,6 +165,140 @@ ${params.fact}
           },
         ],
         details: { targetFile, slug },
+      };
+    },
+  });
+
+  // On-Demand Semantic Recall via Hindsight 4-Arm Hybrid Retrieval
+  pi.registerTool({
+    name: "donna_recall",
+    label: "Donna Recall",
+    description:
+      "Actively recall semantic memories, past decisions, facts, or context from Hindsight's 4-arm hybrid engine (vector + BM25 + graph + temporal) and OKF dossiers.",
+    parameters: z.object({
+      query: z
+        .string()
+        .describe("The question, topic, entity, or decision to search for (e.g. 'alasan penolakan Dokploy', 'jadwal interview Niagamas')"),
+      limit: z
+        .number()
+        .optional()
+        .default(5)
+        .describe("Maximum number of memories to return (1-10)"),
+    }),
+    async execute(_toolCallId, params) {
+      const query = params.query.trim();
+      if (!query) {
+        return { content: [{ type: "text", text: "Query cannot be empty." }] };
+      }
+
+      const facts = await recallFromHindsight(query, config);
+
+      // Also check OKF concepts matching query
+      scanner.scan();
+      const qLower = query.toLowerCase();
+      const okfMatches = scanner.getAllConcepts().filter(
+        (c) =>
+          c.title.toLowerCase().includes(qLower) ||
+          c.slug.toLowerCase().includes(qLower) ||
+          c.tags.some((t) => t.toLowerCase().includes(qLower))
+      ).slice(0, 3);
+
+      const lines: string[] = [];
+
+      if (okfMatches.length > 0) {
+        lines.push("### OKF Knowledge Dossiers:");
+        for (const m of okfMatches) {
+          lines.push(`- **[${m.type}] ${m.title}** (${m.path}): ${m.description || m.contentSummary.slice(0, 150)}`);
+        }
+        lines.push("");
+      }
+
+      if (facts.length > 0) {
+        lines.push("### Semantic Temporal Memories (Hindsight):");
+        for (const f of facts.slice(0, params.limit)) {
+          lines.push(f);
+        }
+      }
+
+      if (lines.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No memories found matching "${params.query}".`,
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: lines.join("\n"),
+          },
+        ],
+        details: { okfCount: okfMatches.length, factsCount: facts.length },
+      };
+    },
+  });
+
+  // Session Search across past conversation transcripts using SQLite FTS5
+  const sessionEngine = new SessionSearchEngine();
+
+  pi.registerTool({
+    name: "donna_session_search",
+    label: "Donna Session Search",
+    description:
+      "Full-text search (SQLite FTS5) across all past conversation transcripts. Use this to find specific chats, commands, past errors, or discussions from earlier sessions.",
+    parameters: z.object({
+      query: z
+        .string()
+        .describe("Search phrase or terms to find across past conversations (e.g. 'e-meterai sewa rumah', 'docker compose postgres')"),
+      project: z
+        .string()
+        .optional()
+        .describe("Optional project filter (e.g. '-.donna', '-infra', '-projects-lz-maniy')"),
+      limit: z
+        .number()
+        .optional()
+        .default(5)
+        .describe("Maximum number of results (1-15)"),
+    }),
+    async execute(_toolCallId, params) {
+      const query = params.query.trim();
+      if (!query) {
+        return { content: [{ type: "text", text: "Query cannot be empty." }] };
+      }
+
+      // Incremental index of recent session files
+      sessionEngine.indexSessions(30);
+
+      const matches = sessionEngine.search(query, params.limit, params.project);
+
+      if (matches.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No past conversation messages found matching "${params.query}".`,
+            },
+          ],
+        };
+      }
+
+      const formatted = matches.map((m, idx) => {
+        return `**${idx + 1}. [${m.project}] ${m.role.toUpperCase()} (Session: ${m.sessionId})**\n> ${m.snippet.replace(/\n/g, " ")}\n`;
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${matches.length} matching message(s) in past sessions:\n\n${formatted.join("\n")}`,
+          },
+        ],
+        details: { count: matches.length },
       };
     },
   });

@@ -4,7 +4,8 @@ import { resolveDonnaConfig } from "./config.js";
 import { OKFScanner } from "./okf/scanner.js";
 import { buildIngressContext } from "./context/ingress.js";
 import { EgressMemoryWorker } from "./memory/egress.js";
-import { syncChangedConcepts, recallFromHindsight } from "./memory/hindsight-sync.js";
+import { syncChangedConcepts } from "./memory/hindsight-sync.js";
+import { MemoryCurator } from "./memory/curator.js";
 import { registerDonnaTools } from "./tools/index.js";
 import { initializeDonnaVault } from "./init.js";
 
@@ -14,6 +15,7 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
   let config = resolveDonnaConfig(process.cwd());
   const scanner = new OKFScanner(config.bundlePath);
   const egressWorker = new EgressMemoryWorker(config);
+  const memoryCurator = new MemoryCurator();
 
   let lastSyncMs = 0;
   // Initial warm-up scan
@@ -56,9 +58,9 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
   let currentTurnPrompt = "";
   let currentTurnResponse = "";
 
-  // Hot-Path Ingress: before_agent_start
-  // 1. Entity resolution from OKF (< 5ms) — people, orgs, commitments
-  // 2. Hindsight recall (< 500ms) — topical semantic memory
+  // Hot-Path Ingress: before_agent_start (< 5ms)
+  // Strict Entity Resolution: only matches recognized people, orgs, active commitments.
+  // Topical memory recall is on-demand via the `donna_recall` tool (Zero Forced-Retrieval Noise).
   pi.on("before_agent_start", async (event) => {
     currentTurnPrompt = typeof event.prompt === "string" ? event.prompt : "";
     currentTurnResponse = "";
@@ -70,29 +72,14 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
     const promptText = typeof event.prompt === "string" ? event.prompt : "";
     if (!promptText) return;
 
-    // Layer 1: OKF entity resolution (people, orgs, commitments — 0% noise)
+    // Entity resolution from OKF (people, orgs, active commitments — 0% noise)
     const ingress = buildIngressContext(promptText, scanner, config);
-
-    // Layer 2: Hindsight topical recall (semantic + temporal + graph)
-    let hindsightBlock = "";
-    if (config.hindsight) {
-      const recalled = await recallFromHindsight(promptText, config);
-      if (recalled.length > 0) {
-        hindsightBlock = [
-          "<donna-recall source=\"hindsight\">",
-          ...recalled,
-          "</donna-recall>",
-        ].join("\n");
-      }
-    }
-
-    const combined = [ingress.xmlContext, hindsightBlock].filter(Boolean).join("\n");
-    if (!combined) return;
+    if (!ingress.xmlContext) return;
 
     return {
       message: {
         customType: "donna-context-injected",
-        content: combined,
+        content: ingress.xmlContext,
         display: false,
         attribution: "agent",
       },
@@ -114,15 +101,23 @@ export default function donnaPaulsen(pi: ExtensionAPI) {
   pi.on("agent_end", (event, ctx) => {
     if (!config.autoConsolidate || !scanner.isBundleAvailable()) return;
 
+    const promptToCurate = currentTurnPrompt;
+    const responseToCurate = currentTurnResponse;
+
     if (currentTurnPrompt) {
       egressWorker.enqueueTurn(Date.now().toString(), currentTurnPrompt, currentTurnResponse);
       currentTurnPrompt = "";
       currentTurnResponse = "";
     }
 
-    // Use managed timer for isolation
+    // Use managed timer for isolation — runs non-blocking in background
     ctx.setTimeout(async () => {
       await egressWorker.processQueue();
+
+      // Proactive Memory Curator: extracts commitments, decisions, corrections into OKF
+      if (promptToCurate && responseToCurate) {
+        await memoryCurator.curateTurn(promptToCurate, responseToCurate, scanner, config).catch(() => {});
+      }
 
       // Sync changed OKF concepts to Hindsight (background, non-blocking)
       if (config.hindsight) {
