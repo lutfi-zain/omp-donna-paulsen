@@ -19,8 +19,8 @@
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <link rel="stylesheet" href="styles.css?v=6">
-  <script src="app.js?v=6" defer></script>
+  <link rel="stylesheet" href="styles.css?v=7">
+  <script src="app.js?v=7" defer></script>
 </head>
 <body>
   <!-- App Container -->
@@ -258,14 +258,14 @@
             <span class="bar bar-3"></span>
           </div>
           <div class="tts-text-container">
-            <span id="tts-chunk-status" class="tts-chunk-badge">Paragraf 1/1</span>
+            <span id="tts-chunk-status" class="tts-chunk-badge">Kalimat 1/1</span>
             <p id="tts-current-text" class="tts-snippet-text" aria-live="polite">Memulai baca nyaring...</p>
           </div>
         </div>
 
         <!-- Controls: Prev, Play/Pause, Next -->
         <div class="tts-controls">
-          <button id="tts-btn-prev" class="btn-tts-action" type="button" title="Paragraf Sebelumnya" aria-label="Paragraf Sebelumnya">
+          <button id="tts-btn-prev" class="btn-tts-action" type="button" title="Kalimat Sebelumnya" aria-label="Kalimat Sebelumnya">
             <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
               <path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z" />
             </svg>
@@ -282,7 +282,7 @@
             </svg>
           </button>
 
-          <button id="tts-btn-next" class="btn-tts-action" type="button" title="Paragraf Selanjutnya" aria-label="Paragraf Selanjutnya">
+          <button id="tts-btn-next" class="btn-tts-action" type="button" title="Kalimat Selanjutnya" aria-label="Kalimat Selanjutnya">
             <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
               <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z" />
             </svg>
@@ -293,8 +293,23 @@
         <div class="tts-options">
           <label for="tts-voice-select" class="sr-only">Pilihan Suara</label>
           <select id="tts-voice-select" class="form-select-sm" aria-label="Pilihan Suara">
-            <option value="id-ID-GadisNeural" selected>Gadis (Wanita ID)</option>
-            <option value="id-ID-ArdiNeural">Ardi (Pria ID)</option>
+            <optgroup label="Bahasa Indonesia">
+              <option value="id-ID-GadisNeural" selected>Gadis (Indonesia - Alami)</option>
+              <option value="id-ID-ArdiNeural">Ardi (Indonesia - Formal)</option>
+            </optgroup>
+            <optgroup label="Bahasa Daerah">
+              <option value="jv-ID-SitiNeural">Siti (Jawa - Santai)</option>
+              <option value="jv-ID-DimasNeural">Dimas (Jawa - Sopan)</option>
+              <option value="su-ID-TutiNeural">Tuti (Sunda - Lembut)</option>
+              <option value="su-ID-JajangNeural">Jajang (Sunda - Ramah)</option>
+            </optgroup>
+            <optgroup label="Multilingual &amp; Global">
+              <option value="en-US-AvaMultilingualNeural">Ava (Multilingual - Ekspresif)</option>
+              <option value="en-US-AndrewMultilingualNeural">Andrew (Multilingual - Hangat)</option>
+              <option value="en-US-EmmaMultilingualNeural">Emma (English - Ceria)</option>
+              <option value="en-US-BrianMultilingualNeural">Brian (English - Kasual)</option>
+              <option value="en-SG-LunaNeural">Luna (Singapore / Asia)</option>
+            </optgroup>
           </select>
 
           <label for="tts-rate-select" class="sr-only">Kecepatan Bicara</label>

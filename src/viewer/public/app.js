@@ -41,11 +41,11 @@
     tts: {
       active: false,
       conceptId: null,
-      chunks: [],
-      chunkElements: [],
-      currentChunkIndex: 0,
-      voice: 'id-ID-GadisNeural',
-      rate: '+0%',
+      sentences: [],
+      sentenceElements: [],
+      currentSentenceIndex: 0,
+      voice: localStorage.getItem('donna_tts_voice') || 'id-ID-GadisNeural',
+      rate: localStorage.getItem('donna_tts_rate') || '+0%',
       isPlaying: false,
       audioEl: null
     },
@@ -203,6 +203,81 @@
     try {
       localStorage.setItem('donna_expanded_folders', JSON.stringify(Array.from(state.expandedFolders)));
     } catch (_) {}
+  }
+
+  // ==========================================================================
+  // TTS Sentence Segmentation & Preparation
+  // ==========================================================================
+  const sentenceSegmenter = typeof Intl !== 'undefined' && Intl.Segmenter
+    ? new Intl.Segmenter('id', { granularity: 'sentence' })
+    : null;
+
+  function splitIntoSentences(text) {
+    if (!text || typeof text !== 'string') return [];
+    if (sentenceSegmenter) {
+      return Array.from(sentenceSegmenter.segment(text))
+        .map(s => s.segment.trim())
+        .filter(s => s.length > 2);
+    }
+    const matches = text.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g);
+    return matches ? matches.map(s => s.trim()).filter(s => s.length > 2) : [text.trim()];
+  }
+
+  function prepareSentencesForReading(markdownBodyEl) {
+    const blocks = markdownBodyEl.querySelectorAll('p, li, blockquote, h1, h2, h3, h4');
+    const sentences = [];
+    const sentenceElements = [];
+
+    blocks.forEach(block => {
+      if (block.closest('pre') || block.closest('code') || block.closest('table')) return;
+
+      const rawText = (block.innerText || block.textContent || '').trim();
+      if (rawText.length <= 2) return;
+
+      const sentenceList = splitIntoSentences(rawText);
+      if (sentenceList.length === 0) return;
+
+      if (block.children.length === 0) {
+        block.innerHTML = sentenceList.map(sentence => {
+          const idx = sentences.length;
+          sentences.push(sentence);
+          return `<span class="tts-sentence" data-sentence-idx="${idx}">${escapeHtml(sentence)}</span>`;
+        }).join(' ');
+
+        block.querySelectorAll('.tts-sentence').forEach(span => {
+          sentenceElements.push(span);
+        });
+      } else {
+        let blockHtml = block.innerHTML;
+        let allReplaced = true;
+
+        for (const sentence of sentenceList) {
+          if (blockHtml.includes(sentence)) {
+            const idx = sentences.length;
+            sentences.push(sentence);
+            blockHtml = blockHtml.replace(sentence, `<span class="tts-sentence" data-sentence-idx="${idx}">${sentence}</span>`);
+          } else {
+            allReplaced = false;
+            break;
+          }
+        }
+
+        if (allReplaced) {
+          block.innerHTML = blockHtml;
+          block.querySelectorAll('.tts-sentence').forEach(span => {
+            sentenceElements.push(span);
+          });
+        } else {
+          const idx = sentences.length;
+          sentences.push(rawText);
+          block.classList.add('tts-sentence');
+          block.setAttribute('data-sentence-idx', String(idx));
+          sentenceElements.push(block);
+        }
+      }
+    });
+
+    return { sentences, sentenceElements };
   }
 
   // ==========================================================================
@@ -1130,18 +1205,18 @@
 
     el.markdownBody.innerHTML = cleanHtml;
 
-    // Post-process HTML: assign data-tts-chunk sequential indices for TTS highlighter
-    const readableElements = el.markdownBody.querySelectorAll('p, h1, h2, h3, h4, li, blockquote');
-    state.tts.chunkElements = [];
-    state.tts.chunks = [];
+    // Prepare sentence-level wrapping for interactive reading & precise highlighting
+    const { sentences, sentenceElements } = prepareSentencesForReading(el.markdownBody);
+    state.tts.sentences = sentences;
+    state.tts.sentenceElements = sentenceElements;
 
-    readableElements.forEach((element, idx) => {
-      const text = element.textContent.trim();
-      if (text.length > 2) {
-        element.setAttribute('data-tts-chunk', state.tts.chunks.length);
-        state.tts.chunkElements.push(element);
-        state.tts.chunks.push(text);
-      }
+    // Interactive Click-to-Read on any sentence
+    sentenceElements.forEach((span, idx) => {
+      span.addEventListener('click', (e) => {
+        if (e.target && e.target.tagName === 'A') return;
+        e.stopPropagation();
+        startTTS(idx);
+      });
     });
 
     // Intercept clicks on internal markdown links
@@ -1351,19 +1426,19 @@
   // ==========================================================================
   // Edge-TTS Read Aloud Player Dock
   // ==========================================================================
-  function startTTS() {
-    if (!state.activeConcept || state.tts.chunks.length === 0) {
-      showToast('Tidak ada teks untuk dibaca');
+  function startTTS(fromIdx = 0) {
+    if (!state.activeConcept || state.tts.sentences.length === 0) {
+      showToast('Tidak ada kalimat untuk dibaca');
       return;
     }
 
     state.tts.active = true;
     state.tts.conceptId = state.activeConcept.id;
-    state.tts.currentChunkIndex = 0;
+    state.tts.currentSentenceIndex = Math.max(0, Math.min(state.tts.sentences.length - 1, fromIdx));
     el.ttsDock.hidden = false;
     el.ttsDock.classList.remove('is-paused');
 
-    playCurrentChunk();
+    playCurrentSentence();
   }
 
   function stopTTS() {
@@ -1379,29 +1454,28 @@
     clearTTSHighlights();
   }
 
-  function playCurrentChunk() {
-    if (state.tts.currentChunkIndex >= state.tts.chunks.length) {
-      // Reached the end of the concept
+  function playCurrentSentence() {
+    if (state.tts.currentSentenceIndex >= state.tts.sentences.length) {
       showToast('Selesai membaca konsep');
       stopTTS();
       return;
     }
 
-    const chunkText = state.tts.chunks[state.tts.currentChunkIndex];
+    const sentenceText = state.tts.sentences[state.tts.currentSentenceIndex];
     state.tts.isPlaying = true;
     el.ttsDock.classList.remove('is-paused');
     updatePlayPauseIcons(true);
 
-    // Update chunk status & text snippet
-    el.ttsChunkStatus.textContent = `Paragraf ${state.tts.currentChunkIndex + 1} dari ${state.tts.chunks.length}`;
-    el.ttsCurrentText.textContent = chunkText;
+    // Update status & text snippet
+    el.ttsChunkStatus.textContent = `Kalimat ${state.tts.currentSentenceIndex + 1} dari ${state.tts.sentences.length}`;
+    el.ttsCurrentText.textContent = sentenceText;
 
-    // Highlight the active paragraph in reader view
-    highlightTTSChunk(state.tts.currentChunkIndex);
+    // Highlight the active sentence in reader view
+    highlightTTSSentence(state.tts.currentSentenceIndex);
 
     // Prepare audio URL with Edge-TTS parameters
     const params = new URLSearchParams({
-      text: chunkText,
+      text: sentenceText,
       voice: state.tts.voice,
       rate: state.tts.rate
     });
@@ -1413,11 +1487,22 @@
       updatePlayPauseIcons(false);
       el.ttsDock.classList.add('is-paused');
     });
+
+    // Prefetch next sentence audio into browser cache
+    if (state.tts.currentSentenceIndex + 1 < state.tts.sentences.length) {
+      const nextText = state.tts.sentences[state.tts.currentSentenceIndex + 1];
+      const nextParams = new URLSearchParams({
+        text: nextText,
+        voice: state.tts.voice,
+        rate: state.tts.rate
+      });
+      fetch(`/api/tts?${nextParams.toString()}`).catch(() => {});
+    }
   }
 
   function toggleTTSPlayPause() {
     if (!state.tts.active) {
-      startTTS();
+      startTTS(0);
       return;
     }
 
@@ -1435,19 +1520,19 @@
     }
   }
 
-  function nextTTSChunk() {
-    if (state.tts.currentChunkIndex + 1 < state.tts.chunks.length) {
-      state.tts.currentChunkIndex++;
-      playCurrentChunk();
+  function nextTTSSentence() {
+    if (state.tts.currentSentenceIndex + 1 < state.tts.sentences.length) {
+      state.tts.currentSentenceIndex++;
+      playCurrentSentence();
     } else {
-      showToast('Ini paragraf terakhir');
+      showToast('Ini kalimat terakhir');
     }
   }
 
-  function prevTTSChunk() {
-    if (state.tts.currentChunkIndex > 0) {
-      state.tts.currentChunkIndex--;
-      playCurrentChunk();
+  function prevTTSSentence() {
+    if (state.tts.currentSentenceIndex > 0) {
+      state.tts.currentSentenceIndex--;
+      playCurrentSentence();
     }
   }
 
@@ -1456,25 +1541,26 @@
     el.ttsIconPause.hidden = !isPlaying;
   }
 
-  function highlightTTSChunk(chunkIdx) {
+  function highlightTTSSentence(sentenceIdx) {
     clearTTSHighlights();
-    const elem = state.tts.chunkElements[chunkIdx];
+    const elem = state.tts.sentenceElements[sentenceIdx];
     if (elem) {
-      elem.classList.add('tts-highlight');
+      elem.classList.add('is-reading');
       elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 
   function clearTTSHighlights() {
-    document.querySelectorAll('.markdown-body .tts-highlight').forEach(el => {
-      el.classList.remove('tts-highlight');
+    document.querySelectorAll('.markdown-body .tts-sentence.is-reading').forEach(el => {
+      el.classList.remove('is-reading');
     });
   }
 
-  // Audio Event Listeners
+  // Audio Event Listeners: advance to next sentence on audio end
   el.ttsAudioElement.addEventListener('ended', () => {
-    state.tts.currentChunkIndex++;
-    playCurrentChunk();
+    if (state.tts.active && state.tts.isPlaying) {
+      nextTTSSentence();
+    }
   });
 
   el.ttsAudioElement.addEventListener('error', (e) => {
@@ -1739,24 +1825,26 @@
     });
 
     el.ttsBtnNext.addEventListener('click', () => {
-      nextTTSChunk();
+      nextTTSSentence();
     });
 
     el.ttsBtnPrev.addEventListener('click', () => {
-      prevTTSChunk();
+      prevTTSSentence();
     });
 
     el.ttsVoiceSelect.addEventListener('change', (e) => {
       state.tts.voice = e.target.value;
+      try { localStorage.setItem('donna_tts_voice', state.tts.voice); } catch (_) {}
       if (state.tts.active) {
-        playCurrentChunk();
+        playCurrentSentence();
       }
     });
 
     el.ttsRateSelect.addEventListener('change', (e) => {
       state.tts.rate = e.target.value;
+      try { localStorage.setItem('donna_tts_rate', state.tts.rate); } catch (_) {}
       if (state.tts.active) {
-        playCurrentChunk();
+        playCurrentSentence();
       }
     });
 
@@ -1791,9 +1879,37 @@
 
   // ==========================================================================
   // App Entry Point
+  async function loadTTSVoices() {
+    try {
+      const res = await fetch('/api/tts/voices');
+      if (res.ok) {
+        const voices = await res.json();
+        if (Array.isArray(voices) && voices.length > 0) {
+          // Group by language
+          const indonesian = voices.filter(v => v.lang.startsWith('id'));
+          const regional = voices.filter(v => v.lang.startsWith('jv') || v.lang.startsWith('su'));
+          const global = voices.filter(v => !v.lang.startsWith('id') && !v.lang.startsWith('jv') && !v.lang.startsWith('su'));
+
+          el.ttsVoiceSelect.innerHTML = `
+            <optgroup label="Bahasa Indonesia">
+              ${indonesian.map(v => `<option value="${escapeHtml(v.id)}" ${v.id === state.tts.voice ? 'selected' : ''}>${escapeHtml(v.name)} (${escapeHtml(v.description)})</option>`).join('')}
+            </optgroup>
+            <optgroup label="Bahasa Daerah">
+              ${regional.map(v => `<option value="${escapeHtml(v.id)}" ${v.id === state.tts.voice ? 'selected' : ''}>${escapeHtml(v.name)} (${escapeHtml(v.description)})</option>`).join('')}
+            </optgroup>
+            <optgroup label="Multilingual & Global">
+              ${global.map(v => `<option value="${escapeHtml(v.id)}" ${v.id === state.tts.voice ? 'selected' : ''}>${escapeHtml(v.name)} (${escapeHtml(v.description)})</option>`).join('')}
+            </optgroup>
+          `;
+        }
+      }
+    } catch (_) {}
+  }
+
   // ==========================================================================
   async function initApp() {
     wireEventListeners();
+    loadTTSVoices();
     await loadVaultGraph();
     initLiveSync();
   }

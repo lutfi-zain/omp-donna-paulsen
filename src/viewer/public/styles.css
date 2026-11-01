@@ -1069,6 +1069,29 @@ select:focus:not(:focus-visible) {
   transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
+/* TTS Sentence-Level Highlighting & Interactive Reading */
+.markdown-body .tts-sentence {
+  display: inline;
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin: 0 1px;
+  transition: background-color 0.18s ease, color 0.18s ease, outline 0.18s ease;
+  cursor: pointer;
+}
+
+.markdown-body .tts-sentence:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.markdown-body .tts-sentence.is-reading {
+  background-color: rgba(56, 189, 248, 0.22);
+  color: #f8fafc;
+  outline: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+
 /* Backlinks and Relationships */
 .concept-relations {
   margin-top: 40px;

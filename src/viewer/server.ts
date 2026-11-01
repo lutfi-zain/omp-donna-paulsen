@@ -7,7 +7,7 @@ import {
   clearSessionCookie,
   GOOGLE_CLIENT_ID,
 } from "./auth.js";
-import { streamTTS } from "./tts.js";
+import { streamTTS, VOICE_METADATA } from "./tts.js";
 import type { SSEEvent } from "./types.js";
 
 const PORT = Number(process.env.PORT || 3456);
@@ -164,6 +164,11 @@ export async function handleRequest(req: Request): Promise<Response> {
       const voice = url.searchParams.get("voice") || undefined;
       const rate = url.searchParams.get("rate") || undefined;
       return streamTTS({ text, voice, rate });
+    }
+
+    // TTS Voices Metadata API
+    if (method === "GET" && pathname === "/api/tts/voices") {
+      return Response.json(VOICE_METADATA);
     }
 
     // SSE Events Stream

@@ -1,9 +1,30 @@
 import type { TTSRequest } from "./types.js";
 
-export const ALLOWED_VOICES: Record<string, string> = {
-  "id-ID-GadisNeural": "id-ID-GadisNeural",
-  "id-ID-ArdiNeural": "id-ID-ArdiNeural",
-};
+export interface VoiceOption {
+  id: string;
+  name: string;
+  lang: string;
+  gender: string;
+  description: string;
+}
+
+export const VOICE_METADATA: VoiceOption[] = [
+  { id: "id-ID-GadisNeural", name: "Gadis", lang: "id-ID", gender: "Wanita", description: "Indonesia - Alami & Jernih" },
+  { id: "id-ID-ArdiNeural", name: "Ardi", lang: "id-ID", gender: "Pria", description: "Indonesia - Formal & Tenang" },
+  { id: "jv-ID-SitiNeural", name: "Siti", lang: "jv-ID", gender: "Wanita", description: "Jawa - Santai" },
+  { id: "jv-ID-DimasNeural", name: "Dimas", lang: "jv-ID", gender: "Pria", description: "Jawa - Sopan" },
+  { id: "su-ID-TutiNeural", name: "Tuti", lang: "su-ID", gender: "Wanita", description: "Sunda - Lembut" },
+  { id: "su-ID-JajangNeural", name: "Jajang", lang: "su-ID", gender: "Pria", description: "Sunda - Ramah" },
+  { id: "en-US-AvaMultilingualNeural", name: "Ava", lang: "en-US", gender: "Wanita", description: "Multilingual - Ekspresif" },
+  { id: "en-US-AndrewMultilingualNeural", name: "Andrew", lang: "en-US", gender: "Pria", description: "Multilingual - Percaya Diri" },
+  { id: "en-US-EmmaMultilingualNeural", name: "Emma", lang: "en-US", gender: "Wanita", description: "English - Ceria & Jelas" },
+  { id: "en-US-BrianMultilingualNeural", name: "Brian", lang: "en-US", gender: "Pria", description: "English - Kasual & Hangat" },
+  { id: "en-SG-LunaNeural", name: "Luna", lang: "en-SG", gender: "Wanita", description: "Singapore / Asia Tenggara" },
+];
+
+export const ALLOWED_VOICES: Record<string, string> = Object.fromEntries(
+  VOICE_METADATA.map((v) => [v.id, v.id])
+);
 
 export const DEFAULT_VOICE = "id-ID-GadisNeural";
 export const DEFAULT_RATE = "+0%";
