@@ -1019,7 +1019,11 @@
 
   function renderConceptView(concept) {
     el.readerEmpty.hidden = true;
+    el.readerEmpty.style.display = 'none';
+    el.readerEmpty.classList.add('is-hidden');
     el.readerContent.hidden = false;
+    el.readerContent.style.display = 'block';
+    el.readerContent.classList.remove('is-hidden');
 
     // Scroll reader panel to top
     el.viewReader.scrollTop = 0;

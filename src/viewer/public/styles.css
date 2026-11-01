@@ -75,6 +75,11 @@
   padding: 0;
 }
 
+/* HTML5 hidden attribute enforcement */
+[hidden] {
+  display: none !important;
+}
+
 html, body {
   height: 100%;
   width: 100%;
@@ -742,6 +747,16 @@ select:focus:not(:focus-visible) {
   height: 80%;
   text-align: center;
   padding: 24px;
+}
+
+.reader-empty[hidden],
+.reader-empty.is-hidden {
+  display: none !important;
+}
+
+.reader-article[hidden],
+.reader-article.is-hidden {
+  display: none !important;
 }
 
 .empty-card {
