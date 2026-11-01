@@ -1254,6 +1254,188 @@ select:focus:not(:focus-visible) {
 }
 
 
+/* ==========================================================================
+   KaTeX Math Formula Rendering
+   ========================================================================== */
+.markdown-body .katex {
+  font-size: 1.05em;
+  text-rendering: auto;
+}
+
+.markdown-body .katex-display {
+  margin: 24px 0;
+  padding: 16px 20px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+
+.markdown-body .katex-display::-webkit-scrollbar {
+  height: 4px;
+}
+.markdown-body .katex-display::-webkit-scrollbar-thumb {
+  background-color: var(--border-default);
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   OMP-Web Style Document Minimap Rail & Outline
+   ========================================================================== */
+.doc-minimap {
+  position: fixed;
+  right: 18px;
+  top: 76px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 8px 6px;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.22s ease,
+              border-color 0.22s ease,
+              box-shadow 0.22s ease;
+  width: 44px;
+}
+
+.doc-minimap::-webkit-scrollbar {
+  display: none;
+}
+
+.doc-minimap[hidden] {
+  display: none !important;
+}
+
+.minimap-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  width: 100%;
+}
+
+/* Subtle vertical guide line */
+.minimap-rail::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* Minimap row */
+.minimap-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 20px;
+  width: 100%;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+}
+
+/* The Horizontal Tick Bar */
+.minimap-bar {
+  height: 3px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.25);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.minimap-item[data-level="1"] .minimap-bar { width: 24px; }
+.minimap-item[data-level="2"] .minimap-bar { width: 18px; }
+.minimap-item[data-level="3"] .minimap-bar { width: 12px; }
+.minimap-item[data-level="4"] .minimap-bar { width: 8px; }
+
+/* Item Label (Hidden when idle, visible when hovered) */
+.minimap-label {
+  opacity: 0;
+  pointer-events: none;
+  max-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-size: 0.775rem;
+  font-family: var(--font-sans);
+  margin-right: 10px;
+  transform: translateX(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, max-width 0.2s ease, color 0.15s ease;
+}
+
+/* Hovered / Expanded State: OMP-Web Zoom */
+.doc-minimap:hover {
+  width: 260px;
+  background-color: rgba(13, 18, 24, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.doc-minimap:hover .minimap-rail::after {
+  display: none;
+}
+
+.doc-minimap:hover .minimap-label {
+  opacity: 1;
+  pointer-events: auto;
+  max-width: 210px;
+  transform: translateX(0);
+}
+
+.doc-minimap:hover .minimap-item {
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.doc-minimap:hover .minimap-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.doc-minimap:hover .minimap-item:hover .minimap-label {
+  color: var(--text-primary);
+}
+
+.doc-minimap:hover .minimap-item:hover .minimap-bar {
+  background-color: var(--text-primary);
+}
+
+/* Active State (Scroll-spy tracking) */
+.minimap-item.is-active .minimap-bar {
+  height: 4px;
+  background-color: var(--accent-primary) !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+}
+
+.minimap-item.is-active .minimap-label {
+  color: var(--accent-primary) !important;
+  font-weight: 600;
+}
+
+@media (max-width: 1023px) {
+  .doc-minimap {
+    display: none !important;
+  }
+}
+
+
 /* Backlinks and Relationships */
 .concept-relations {
   margin-top: 40px;

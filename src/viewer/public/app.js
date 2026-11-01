@@ -126,7 +126,8 @@
     markdownBody: document.getElementById('markdown-body'),
     outgoingLinksList: document.getElementById('outgoing-links-list'),
     backlinksList: document.getElementById('backlinks-list'),
-
+    docMinimap: document.getElementById('doc-minimap'),
+    minimapRail: document.getElementById('minimap-rail'),
     // Mobile Tabs
     tabExplorer: document.getElementById('tab-explorer'),
     tabGraph: document.getElementById('tab-graph'),
@@ -1165,6 +1166,112 @@
     focusNodeInGraph(concept.id);
     syncExplorerActiveConcept(concept.id);
   }
+  // ==========================================================================
+  // KaTeX LaTeX Math Formula Renderer
+  // ==========================================================================
+  function renderKaTeXInElement(element) {
+    if (typeof renderMathInElement === 'function') {
+      try {
+        renderMathInElement(element, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false },
+            { left: "\\(", right: "\\)", display: false },
+            { left: "\\[", right: "\\]", display: true }
+          ],
+          throwOnError: false,
+          ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+        });
+      } catch (err) {
+        console.warn("KaTeX render error:", err);
+      }
+    }
+  }
+
+  // ==========================================================================
+  // OMP-Web Style Document Minimap & Outline
+  // ==========================================================================
+  let minimapObserver = null;
+
+  function buildDocumentMinimap() {
+    if (!el.docMinimap || !el.minimapRail) return;
+
+    if (minimapObserver) {
+      minimapObserver.disconnect();
+      minimapObserver = null;
+    }
+
+    const headings = el.markdownBody.querySelectorAll('h1, h2, h3, h4');
+    if (headings.length <= 1) {
+      el.docMinimap.hidden = true;
+      el.minimapRail.innerHTML = '';
+      return;
+    }
+
+    el.docMinimap.hidden = false;
+    el.minimapRail.innerHTML = '';
+
+    headings.forEach((h, idx) => {
+      const text = (h.textContent || '').trim();
+      if (!text) return;
+
+      if (!h.id) {
+        h.id = `heading-${idx}-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+      }
+
+      const level = parseInt(h.tagName.substring(1), 10) || 2;
+      const item = document.createElement('div');
+      item.className = `minimap-item ${idx === 0 ? 'is-active' : ''}`;
+      item.setAttribute('data-level', String(level));
+      item.setAttribute('data-heading-id', h.id);
+      item.setAttribute('role', 'listitem');
+      item.setAttribute('title', text);
+
+      const label = document.createElement('span');
+      label.className = 'minimap-label';
+      label.textContent = text;
+
+      const bar = document.createElement('span');
+      bar.className = 'minimap-bar';
+
+      item.appendChild(label);
+      item.appendChild(bar);
+
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        updateActiveMinimapItem(h.id);
+      });
+
+      el.minimapRail.appendChild(item);
+    });
+
+    minimapObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          updateActiveMinimapItem(entry.target.id);
+        }
+      });
+    }, {
+      root: el.viewReader,
+      rootMargin: '-5% 0px -65% 0px',
+      threshold: 0
+    });
+
+    headings.forEach(h => minimapObserver.observe(h));
+  }
+
+  function updateActiveMinimapItem(headingId) {
+    if (!el.minimapRail) return;
+    el.minimapRail.querySelectorAll('.minimap-item').forEach(item => {
+      if (item.getAttribute('data-heading-id') === headingId) {
+        item.classList.add('is-active');
+      } else {
+        item.classList.remove('is-active');
+      }
+    });
+  }
+
 
   function renderConceptView(concept) {
     el.readerEmpty.hidden = true;
@@ -1236,6 +1343,12 @@
     // Render Markdown body with marked + DOMPurify
     renderMarkdownContent(concept.body || '');
 
+    // Render KaTeX formulas inside document
+    renderKaTeXInElement(el.markdownBody);
+
+    // Build OMP-Web Document Minimap Outline
+    buildDocumentMinimap();
+
     // Render Outgoing Links & Backlinks
     renderRelations(concept);
   }
@@ -1266,15 +1379,43 @@
       return `[${display}](#${href})`;
     });
 
+    // Protect LaTeX math formulas from being altered by marked parser
+    const mathBlocks = [];
+    const mathInlines = [];
+
+    // 1. Protect block math $$...$$
+    let textWithProtectedMath = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+      const idx = mathBlocks.length;
+      mathBlocks.push(math);
+      return `@@MATH_BLOCK_${idx}@@`;
+    });
+
+    // 2. Protect inline math $...$
+    textWithProtectedMath = textWithProtectedMath.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+      const idx = mathInlines.length;
+      mathInlines.push(math);
+      return `@@MATH_INLINE_${idx}@@`;
+    });
+
     marked.setOptions({
       renderer: renderer,
       gfm: true,
       breaks: true
     });
 
-    const dirtyHtml = marked.parse(processed);
-    const cleanHtml = DOMPurify.sanitize(dirtyHtml, {
-      ADD_ATTR: ['target', 'data-tts-chunk']
+    const dirtyHtml = marked.parse(textWithProtectedMath);
+
+    // Restore protected LaTeX formulas before DOMPurify
+    let restoredHtml = dirtyHtml.replace(/@@MATH_BLOCK_(\d+)@@/g, (_, idx) => {
+      return `<div class="katex-display-math">$$${mathBlocks[parseInt(idx, 10)]}$$</div>`;
+    });
+    restoredHtml = restoredHtml.replace(/@@MATH_INLINE_(\d+)@@/g, (_, idx) => {
+      return `<span class="katex-inline-math">$${mathInlines[parseInt(idx, 10)]}$</span>`;
+    });
+
+    const cleanHtml = DOMPurify.sanitize(restoredHtml, {
+      ADD_TAGS: ['span', 'div'],
+      ADD_ATTR: ['target', 'data-tts-chunk', 'class']
     });
 
     el.markdownBody.innerHTML = cleanHtml;
