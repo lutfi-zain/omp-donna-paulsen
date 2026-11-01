@@ -5,6 +5,28 @@ import type { DonnaConfig } from "../types.js";
 import type { OKFScanner } from "../okf/scanner.js";
 import { recallFromHindsight } from "../memory/hindsight-sync.js";
 import { SessionSearchEngine } from "../search/session-search.js";
+interface ContextPullParams {
+  query: string;
+  category: "all" | "people" | "projects" | "goals" | "organizations" | "profile" | "commitments";
+}
+
+interface RememberParams {
+  category: "people" | "projects" | "goals" | "preferences" | "general";
+  name: string;
+  fact: string;
+  relationship?: string;
+}
+
+interface RecallParams {
+  query: string;
+  limit?: number;
+}
+
+interface SessionSearchParams {
+  query: string;
+  project?: string;
+  limit?: number;
+}
 export function registerDonnaTools(
   pi: ExtensionAPI,
   scanner: OKFScanner,
@@ -24,7 +46,7 @@ export function registerDonnaTools(
         .default("all")
         .describe("Concept category filter"),
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params: ContextPullParams) {
       if (!scanner.isBundleAvailable()) {
         return {
           content: [
@@ -95,7 +117,7 @@ export function registerDonnaTools(
         .optional()
         .describe("Relationship to principal (e.g. 'anak', 'klien', 'rekan')"),
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params: RememberParams) {
       const bundlePath = scanner.getBundlePath();
       if (!fs.existsSync(bundlePath)) {
         return {
@@ -185,7 +207,7 @@ ${params.fact}
         .default(5)
         .describe("Maximum number of memories to return (1-10)"),
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params: RecallParams) {
       const query = params.query.trim();
       if (!query) {
         return { content: [{ type: "text", text: "Query cannot be empty." }] };
@@ -265,7 +287,7 @@ ${params.fact}
         .default(5)
         .describe("Maximum number of results (1-15)"),
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params: SessionSearchParams) {
       const query = params.query.trim();
       if (!query) {
         return { content: [{ type: "text", text: "Query cannot be empty." }] };

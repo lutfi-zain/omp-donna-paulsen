@@ -1,0 +1,1354 @@
+/**
+ * Donna Paulsen OKF Knowledge Graph & Document Reader
+ * Single Page Application Logic
+ */
+
+(() => {
+  'use strict';
+
+  // ==========================================================================
+  // Global Constants & State
+  // ==========================================================================
+  const GOOGLE_CLIENT_ID = '389746131392-6s6f7i2ci1sbm1gqafhqkkpmphefocte.apps.googleusercontent.com';
+  const ALLOWED_EMAIL = 'lutfidmz@gmail.com';
+
+  const TYPE_COLORS = {
+    'Persona': '#d2a8ff',
+    'Decision': '#e3b341',
+    'Commitment': '#3fb950',
+    'Knowledge': '#58a6ff',
+    'Project': '#f0883e',
+    'Toolbox': '#79c0ff',
+    'Journal': '#a5d6ff',
+    'Preferences': '#ff7b72',
+    'Playbook': '#d29922'
+  };
+
+  const state = {
+    currentUser: null,
+    graphData: null,
+    activeConceptId: null,
+    activeConcept: null,
+    fuseIndex: null,
+    cy: null,
+    activeFilterType: 'all',
+    activeLayout: 'cose',
+    activeTab: 'graph',
+    tts: {
+      active: false,
+      conceptId: null,
+      chunks: [],
+      chunkElements: [],
+      currentChunkIndex: 0,
+      voice: 'id-ID-GadisNeural',
+      rate: '+0%',
+      isPlaying: false,
+      audioEl: null
+    },
+    search: {
+      results: [],
+      selectedIndex: -1,
+      selectedFilter: 'all'
+    }
+  };
+
+  // ==========================================================================
+  // DOM Elements Cache
+  // ==========================================================================
+  const el = {
+    // Header & User
+    searchTriggerBtn: document.getElementById('search-trigger-btn'),
+    statsBadge: document.getElementById('stats-counter'),
+    statConcepts: document.getElementById('stat-concepts'),
+    statEdges: document.getElementById('stat-edges'),
+    userProfile: document.getElementById('user-profile'),
+    userAvatar: document.getElementById('user-avatar'),
+    userName: document.getElementById('user-name'),
+    logoutBtn: document.getElementById('logout-btn'),
+    syncStatus: document.getElementById('sync-status'),
+
+    // Main views
+    viewGraph: document.getElementById('view-graph'),
+    viewReader: document.getElementById('view-reader'),
+
+    // Graph Controls
+    graphLayoutSelect: document.getElementById('graph-layout-select'),
+    graphFilterSelect: document.getElementById('graph-filter-select'),
+    btnFitGraph: document.getElementById('btn-fit-graph'),
+    btnZoomIn: document.getElementById('btn-zoom-in'),
+    btnZoomOut: document.getElementById('btn-zoom-out'),
+    cyContainer: document.getElementById('cy'),
+    graphLegend: document.getElementById('graph-legend'),
+
+    // Reader elements
+    readerEmpty: document.getElementById('reader-empty'),
+    readerContent: document.getElementById('reader-content'),
+    emptySearchBtn: document.getElementById('empty-search-btn'),
+    conceptTypeBadge: document.getElementById('concept-type-badge'),
+    conceptTrustBadge: document.getElementById('concept-trust-badge'),
+    conceptStalenessBadge: document.getElementById('concept-staleness-badge'),
+    conceptIdBadge: document.getElementById('concept-id-badge'),
+    conceptTitle: document.getElementById('concept-title'),
+    conceptDescription: document.getElementById('concept-description'),
+    btnReadAloud: document.getElementById('btn-read-aloud'),
+    conceptTagsList: document.getElementById('concept-tags-list'),
+    markdownBody: document.getElementById('markdown-body'),
+    outgoingLinksList: document.getElementById('outgoing-links-list'),
+    backlinksList: document.getElementById('backlinks-list'),
+
+    // Mobile Tabs
+    tabGraph: document.getElementById('tab-graph'),
+    tabReader: document.getElementById('tab-reader'),
+    tabSearch: document.getElementById('tab-search'),
+
+    // Floating TTS Dock
+    ttsDock: document.getElementById('tts-dock'),
+    ttsChunkStatus: document.getElementById('tts-chunk-status'),
+    ttsCurrentText: document.getElementById('tts-current-text'),
+    ttsBtnPrev: document.getElementById('tts-btn-prev'),
+    ttsBtnPlay: document.getElementById('tts-btn-play'),
+    ttsIconPlay: document.getElementById('tts-icon-play'),
+    ttsIconPause: document.getElementById('tts-icon-pause'),
+    ttsBtnNext: document.getElementById('tts-btn-next'),
+    ttsVoiceSelect: document.getElementById('tts-voice-select'),
+    ttsRateSelect: document.getElementById('tts-rate-select'),
+    ttsBtnClose: document.getElementById('tts-btn-close'),
+    ttsAudioElement: document.getElementById('tts-audio-element'),
+
+    // Search Dialog
+    searchDialog: document.getElementById('search-dialog'),
+    searchInput: document.getElementById('search-input'),
+    searchCloseBtn: document.getElementById('search-close-btn'),
+    searchTypeFilters: document.getElementById('search-type-filters'),
+    searchResultsList: document.getElementById('search-results-list'),
+    searchResultsCount: document.getElementById('search-results-count'),
+
+    // Auth Dialog
+    authDialog: document.getElementById('auth-dialog'),
+    googleSigninBtn: document.getElementById('google-signin-btn'),
+    authErrorMsg: document.getElementById('auth-error-msg'),
+    authLoading: document.getElementById('auth-loading'),
+
+    // Toast Container
+    toastContainer: document.getElementById('toast-container')
+  };
+
+  state.tts.audioEl = el.ttsAudioElement;
+
+  // ==========================================================================
+  // Utility Helpers
+  // ==========================================================================
+  function getTypeColor(type) {
+    return TYPE_COLORS[type] || '#8b949e';
+  }
+
+  function showToast(message, duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    el.toastContainer.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+
+  function formatDate(isoStr) {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return isoStr;
+    }
+  }
+
+  // ==========================================================================
+  // Authentication Management
+  // ==========================================================================
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated && data.user) {
+          state.currentUser = data.user;
+          onAuthSuccess(data.user);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memeriksa sesi pengguna:', err);
+    }
+
+    showAuthModal();
+    return false;
+  }
+
+  function onAuthSuccess(user) {
+    if (el.authDialog.open) {
+      el.authDialog.close();
+    }
+    el.userProfile.hidden = false;
+    el.userAvatar.src = user.picture || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="%2358a6ff"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
+    el.userName.textContent = user.name || user.email.split('@')[0];
+    el.userAvatar.alt = user.name || 'User Avatar';
+
+    // Start loading main app features
+    initApp();
+  }
+
+  function showAuthModal() {
+    el.authErrorMsg.hidden = true;
+    el.authLoading.hidden = true;
+    if (!el.authDialog.open) {
+      el.authDialog.showModal();
+    }
+
+    initGoogleSignIn();
+  }
+
+  function initGoogleSignIn() {
+    if (typeof window.google === 'undefined' || !window.google.accounts) {
+      // Retry in 200ms if script is still loading
+      setTimeout(initGoogleSignIn, 200);
+      return;
+    }
+
+    try {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false
+      });
+
+      window.google.accounts.id.renderButton(el.googleSigninBtn, {
+        theme: 'outline',
+        size: 'large',
+        type: 'standard',
+        shape: 'rectangular',
+        text: 'signin_with',
+        logo_alignment: 'left',
+        width: 280
+      });
+    } catch (err) {
+      console.error('Error saat inisialisasi Google GIS:', err);
+    }
+  }
+
+  async function handleGoogleCredentialResponse(response) {
+    if (!response || !response.credential) {
+      showAuthError('Gagal menerima kredensial dari Google.');
+      return;
+    }
+
+    el.authLoading.hidden = false;
+    el.authErrorMsg.hidden = true;
+
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      el.authLoading.hidden = true;
+
+      if (res.ok && data.ok && data.user) {
+        state.currentUser = data.user;
+        onAuthSuccess(data.user);
+      } else {
+        const errorMsg = data.message || 'Akses ditolak: Akun Anda tidak memiliki otorisasi (hanya lutfidmz@gmail.com yang diizinkan).';
+        showAuthError(errorMsg);
+      }
+    } catch (err) {
+      el.authLoading.hidden = true;
+      showAuthError('Terjadi kesalahan jaringan saat memvalidasi login.');
+    }
+  }
+
+  function showAuthError(message) {
+    el.authErrorMsg.textContent = message;
+    el.authErrorMsg.hidden = false;
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {
+      console.warn('Logout network error:', e);
+    }
+    state.currentUser = null;
+    el.userProfile.hidden = true;
+    showAuthModal();
+  }
+
+  // ==========================================================================
+  // Vault Data & Cytoscape Graph
+  // ==========================================================================
+  async function loadVaultGraph() {
+    try {
+      const res = await fetch('/api/vault/graph', { credentials: 'include' });
+      if (!res.ok) {
+        if (res.status === 401) {
+          showAuthModal();
+          return;
+        }
+        throw new Error(`HTTP ${res.status}: Gagal memuat graf vault`);
+      }
+
+      const graph = await res.json();
+      state.graphData = graph;
+
+      // Update counters
+      el.statConcepts.textContent = graph.stats ? graph.stats.concepts : graph.nodes.length;
+      el.statEdges.textContent = graph.stats ? graph.stats.edges : graph.edges.length;
+
+      // Populate filter dropdowns & legend
+      populateTypeFilters(graph.stats.types || []);
+      renderGraphLegend(graph.stats.types || []);
+
+      // Build Fuse.js index
+      initFuseSearch(graph.nodes);
+
+      // Render or update Cytoscape
+      renderCytoscapeGraph(graph);
+
+      // Deep link navigation
+      handleHashNavigation();
+    } catch (err) {
+      console.error('Error loadVaultGraph:', err);
+      showToast('Gagal memuat graf pengetahuan.');
+    }
+  }
+
+  function populateTypeFilters(types) {
+    // Graph filter select
+    const currentGraphVal = el.graphFilterSelect.value;
+    el.graphFilterSelect.innerHTML = '<option value="all">Semua Tipe</option>';
+    types.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = `${t}`;
+      el.graphFilterSelect.appendChild(opt);
+    });
+    el.graphFilterSelect.value = currentGraphVal || 'all';
+
+    // Search dialog filter pills
+    el.searchTypeFilters.innerHTML = '';
+    const allPill = createFilterPill('all', 'Semua', state.search.selectedFilter === 'all');
+    el.searchTypeFilters.appendChild(allPill);
+
+    types.forEach(t => {
+      const pill = createFilterPill(t, t, state.search.selectedFilter === t);
+      el.searchTypeFilters.appendChild(pill);
+    });
+  }
+
+  function createFilterPill(typeValue, label, isActive) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `filter-pill ${isActive ? 'is-active' : ''}`;
+    btn.textContent = label;
+    btn.setAttribute('data-type', typeValue);
+    btn.addEventListener('click', () => {
+      state.search.selectedFilter = typeValue;
+      document.querySelectorAll('.search-type-filters .filter-pill').forEach(p => p.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      performSearch(el.searchInput.value.trim());
+    });
+    return btn;
+  }
+
+  function renderGraphLegend(types) {
+    el.graphLegend.innerHTML = '';
+    types.forEach(type => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+
+      const dot = document.createElement('span');
+      dot.className = 'legend-dot';
+      dot.style.backgroundColor = getTypeColor(type);
+
+      const label = document.createElement('span');
+      label.textContent = type;
+
+      item.appendChild(dot);
+      item.appendChild(label);
+      el.graphLegend.appendChild(item);
+    });
+  }
+
+  function renderCytoscapeGraph(graph) {
+    const elements = [];
+
+    // Map Nodes
+    graph.nodes.forEach(node => {
+      const bodyLen = (node.body || '').length;
+      const nodeSize = Math.min(52, Math.max(26, 26 + Math.log2((bodyLen || 100) / 40) * 3));
+
+      elements.push({
+        data: {
+          id: node.id,
+          label: node.title.length > 24 ? node.title.slice(0, 22) + '…' : node.title,
+          fullTitle: node.title,
+          type: node.type,
+          nodeColor: getTypeColor(node.type),
+          nodeSize: nodeSize,
+          rawConcept: node
+        }
+      });
+    });
+
+    // Map Edges
+    graph.edges.forEach((edge, idx) => {
+      elements.push({
+        data: {
+          id: `e_${edge.source}_${edge.target}_${idx}`,
+          source: edge.source,
+          target: edge.target
+        }
+      });
+    });
+
+    if (state.cy) {
+      state.cy.destroy();
+    }
+
+    state.cy = cytoscape({
+      container: el.cyContainer,
+      elements: elements,
+      style: [
+        {
+          selector: 'node',
+          style: {
+            'background-color': 'data(nodeColor)',
+            'width': 'data(nodeSize)',
+            'height': 'data(nodeSize)',
+            'label': 'data(label)',
+            'color': '#f0f6fc',
+            'font-family': 'Atkinson Hyperlegible, sans-serif',
+            'font-size': '11px',
+            'text-valign': 'bottom',
+            'text-margin-y': 5,
+            'text-outline-color': '#0d1117',
+            'text-outline-width': 2,
+            'text-outline-opacity': 0.9,
+            'border-width': 1.5,
+            'border-color': '#30363d',
+            'transition-property': 'background-color, border-color, border-width, width, height',
+            'transition-duration': '0.15s'
+          }
+        },
+        {
+          selector: 'node:selected',
+          style: {
+            'border-color': '#58a6ff',
+            'border-width': 3.5,
+            'shadow-blur': 14,
+            'shadow-color': '#58a6ff',
+            'shadow-opacity': 0.8
+          }
+        },
+        {
+          selector: 'node.highlighted',
+          style: {
+            'border-color': '#58a6ff',
+            'border-width': 3
+          }
+        },
+        {
+          selector: 'node.dimmed',
+          style: {
+            'opacity': 0.25
+          }
+        },
+        {
+          selector: 'edge',
+          style: {
+            'width': 1.5,
+            'line-color': '#30363d',
+            'target-arrow-color': '#30363d',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'arrow-scale': 0.8,
+            'transition-property': 'line-color, target-arrow-color, width, opacity',
+            'transition-duration': '0.15s'
+          }
+        },
+        {
+          selector: 'edge.highlighted',
+          style: {
+            'width': 2.5,
+            'line-color': '#58a6ff',
+            'target-arrow-color': '#58a6ff',
+            'opacity': 1
+          }
+        },
+        {
+          selector: 'edge.dimmed',
+          style: {
+            'opacity': 0.1
+          }
+        }
+      ],
+      layout: getLayoutConfig(state.activeLayout),
+      boxSelectionEnabled: false,
+      autoungrabify: false
+    });
+
+    // Node Interaction Events
+    state.cy.on('tap', 'node', (evt) => {
+      const node = evt.target;
+      const conceptId = node.id();
+      highlightNeighborhood(node);
+      selectConcept(conceptId);
+
+      // On mobile viewports, automatically switch tab to Reader
+      if (window.innerWidth <= 1023) {
+        switchMobileTab('reader');
+      }
+    });
+
+    state.cy.on('tap', (evt) => {
+      if (evt.target === state.cy) {
+        resetGraphHighlights();
+      }
+    });
+  }
+
+  function getLayoutConfig(name) {
+    switch (name) {
+      case 'concentric':
+        return {
+          name: 'concentric',
+          concentric: (node) => node.degree(),
+          levelWidth: () => 2,
+          animate: true,
+          animationDuration: 400
+        };
+      case 'circle':
+        return {
+          name: 'circle',
+          animate: true,
+          animationDuration: 400
+        };
+      case 'breadthfirst':
+        return {
+          name: 'breadthfirst',
+          directed: true,
+          spacingFactor: 1.25,
+          animate: true,
+          animationDuration: 400
+        };
+      case 'grid':
+        return {
+          name: 'grid',
+          animate: true,
+          animationDuration: 400
+        };
+      case 'cose':
+      default:
+        return {
+          name: 'cose',
+          animate: false,
+          randomize: false,
+          componentSpacing: 60,
+          nodeOverlap: 20,
+          idealEdgeLength: () => 60,
+          nodeRepulsion: () => 4500
+        };
+    }
+  }
+
+  function applyLayout(layoutName) {
+    state.activeLayout = layoutName;
+    if (state.cy) {
+      const layout = state.cy.layout(getLayoutConfig(layoutName));
+      layout.run();
+    }
+  }
+
+  function applyFilter(type) {
+    state.activeFilterType = type;
+    if (!state.cy) return;
+
+    if (type === 'all') {
+      state.cy.elements().removeClass('dimmed');
+    } else {
+      state.cy.batch(() => {
+        state.cy.nodes().forEach(n => {
+          if (n.data('type') === type) {
+            n.removeClass('dimmed');
+            n.connectedEdges().removeClass('dimmed');
+          } else {
+            n.addClass('dimmed');
+          }
+        });
+      });
+    }
+  }
+
+  function highlightNeighborhood(node) {
+    if (!state.cy) return;
+    state.cy.batch(() => {
+      state.cy.elements().removeClass('highlighted dimmed');
+      const neighborhood = node.neighborhood().add(node);
+      state.cy.elements().not(neighborhood).addClass('dimmed');
+      neighborhood.addClass('highlighted');
+    });
+  }
+
+  function resetGraphHighlights() {
+    if (!state.cy) return;
+    state.cy.batch(() => {
+      state.cy.elements().removeClass('highlighted dimmed');
+    });
+    if (state.activeFilterType !== 'all') {
+      applyFilter(state.activeFilterType);
+    }
+  }
+
+  function focusNodeInGraph(nodeId) {
+    if (!state.cy) return;
+    const node = state.cy.getElementById(nodeId);
+    if (node && node.length > 0) {
+      state.cy.nodes().unselect();
+      node.select();
+      highlightNeighborhood(node);
+      state.cy.animate({
+        center: { eles: node },
+        zoom: 1.4
+      }, { duration: 400 });
+    }
+  }
+
+  // ==========================================================================
+  // Concept Reader & Markdown Rendering
+  // ==========================================================================
+  async function selectConcept(conceptId, updateHash = true) {
+    if (!conceptId) return;
+
+    state.activeConceptId = conceptId;
+
+    if (updateHash) {
+      window.location.hash = '#' + encodeURIComponent(conceptId);
+    }
+
+    // Stop current TTS if reading a different concept
+    if (state.tts.active && state.tts.conceptId !== conceptId) {
+      stopTTS();
+    }
+
+    // Find locally in cached graph nodes first for speed
+    let concept = null;
+    if (state.graphData && state.graphData.nodes) {
+      concept = state.graphData.nodes.find(n => n.id === conceptId || n.slug === conceptId || n.path === conceptId);
+    }
+
+    // Fetch full concept if not in memory or to refresh
+    if (!concept || !concept.body) {
+      try {
+        const res = await fetch(`/api/vault/concept/${encodeURIComponent(conceptId)}`, { credentials: 'include' });
+        if (res.ok) {
+          concept = await res.json();
+        }
+      } catch (err) {
+        console.warn('Gagal memuat detail konsep:', err);
+      }
+    }
+
+    if (!concept) {
+      showToast('Konsep tidak ditemukan');
+      return;
+    }
+
+    state.activeConcept = concept;
+    renderConceptView(concept);
+    focusNodeInGraph(concept.id);
+  }
+
+  function renderConceptView(concept) {
+    el.readerEmpty.hidden = true;
+    el.readerContent.hidden = false;
+
+    // Scroll reader panel to top
+    el.viewReader.scrollTop = 0;
+
+    // Header Metadata
+    el.conceptTitle.textContent = concept.title;
+    el.conceptIdBadge.textContent = concept.id;
+
+    // Type Badge
+    el.conceptTypeBadge.textContent = concept.type;
+    el.conceptTypeBadge.style.color = getTypeColor(concept.type);
+    el.conceptTypeBadge.style.borderColor = getTypeColor(concept.type);
+
+    // Trust Badge (OKF standard verification tiers)
+    const status = (concept.status || 'unverified').toLowerCase();
+    el.conceptTrustBadge.className = `trust-badge ${status}`;
+    if (status === 'human-reviewed') {
+      el.conceptTrustBadge.innerHTML = '✓ Human-Reviewed';
+    } else if (status === 'machine-confirmed') {
+      el.conceptTrustBadge.innerHTML = '⚡ Machine-Confirmed';
+    } else {
+      el.conceptTrustBadge.innerHTML = '⚠️ Unverified';
+    }
+
+    // Staleness warning
+    if (concept.stale_after) {
+      const isStale = new Date(concept.stale_after) < new Date();
+      if (isStale) {
+        el.conceptStalenessBadge.hidden = false;
+        el.conceptStalenessBadge.textContent = `⚠️ Kadaluarsa sejak ${formatDate(concept.stale_after)}`;
+      } else {
+        el.conceptStalenessBadge.hidden = true;
+      }
+    } else {
+      el.conceptStalenessBadge.hidden = true;
+    }
+
+    // Description
+    if (concept.description) {
+      el.conceptDescription.hidden = false;
+      el.conceptDescription.textContent = concept.description;
+    } else {
+      el.conceptDescription.hidden = true;
+    }
+
+    // Tags list
+    el.conceptTagsList.innerHTML = '';
+    const tags = concept.tags || [];
+    tags.forEach(tag => {
+      const tagChip = document.createElement('button');
+      tagChip.type = 'button';
+      tagChip.className = 'tag-chip';
+      tagChip.textContent = `#${tag}`;
+      tagChip.title = `Cari konsep dengan tag #${tag}`;
+      tagChip.addEventListener('click', () => {
+        openSearchDialog(`#${tag}`);
+      });
+      el.conceptTagsList.appendChild(tagChip);
+    });
+
+    // Render Markdown body with marked + DOMPurify
+    renderMarkdownContent(concept.body || '');
+
+    // Render Outgoing Links & Backlinks
+    renderRelations(concept);
+  }
+
+  function renderMarkdownContent(rawMarkdown) {
+    // Custom renderer for marked to transform wikilinks and internal links
+    const renderer = new marked.Renderer();
+
+    // Custom link renderer
+    const originalLink = renderer.link.bind(renderer);
+    renderer.link = function (linkObj) {
+      const href = linkObj.href || '';
+      const text = linkObj.text || '';
+      const title = linkObj.title ? ` title="${linkObj.title}"` : '';
+
+      // Internal link handling (e.g., target.md, decisions/foo.md, etc.)
+      if (!href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:')) {
+        const cleanHref = href.replace(/\.md$/, '').replace(/^\.\//, '');
+        return `<a href="#${encodeURIComponent(cleanHref)}" class="internal-link"${title}>${text}</a>`;
+      }
+      return originalLink(linkObj);
+    };
+
+    // Pre-process wikilinks: [[concept]] or [[concept|label]]
+    let processed = rawMarkdown.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, target, label) => {
+      const display = label ? label.trim() : target.trim();
+      const href = encodeURIComponent(target.trim());
+      return `[${display}](#${href})`;
+    });
+
+    marked.setOptions({
+      renderer: renderer,
+      gfm: true,
+      breaks: true
+    });
+
+    const dirtyHtml = marked.parse(processed);
+    const cleanHtml = DOMPurify.sanitize(dirtyHtml, {
+      ADD_ATTR: ['target', 'data-tts-chunk']
+    });
+
+    el.markdownBody.innerHTML = cleanHtml;
+
+    // Post-process HTML: assign data-tts-chunk sequential indices for TTS highlighter
+    const readableElements = el.markdownBody.querySelectorAll('p, h1, h2, h3, h4, li, blockquote');
+    state.tts.chunkElements = [];
+    state.tts.chunks = [];
+
+    readableElements.forEach((element, idx) => {
+      const text = element.textContent.trim();
+      if (text.length > 2) {
+        element.setAttribute('data-tts-chunk', state.tts.chunks.length);
+        state.tts.chunkElements.push(element);
+        state.tts.chunks.push(text);
+      }
+    });
+
+    // Intercept clicks on internal markdown links
+    el.markdownBody.querySelectorAll('a.internal-link, a[href^="#"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const hash = a.getAttribute('href');
+        if (hash && hash.startsWith('#')) {
+          e.preventDefault();
+          const targetId = decodeURIComponent(hash.slice(1));
+          selectConcept(targetId);
+        }
+      });
+    });
+  }
+
+  function renderRelations(concept) {
+    // Outgoing Links
+    el.outgoingLinksList.innerHTML = '';
+    const links = concept.links || [];
+    if (links.length === 0) {
+      el.outgoingLinksList.innerHTML = '<span class="empty-hint">Tidak ada tautan keluar</span>';
+    } else {
+      links.forEach(targetId => {
+        const targetNode = state.graphData?.nodes?.find(n => n.id === targetId || n.slug === targetId);
+        const card = createRelationCard(targetId, targetNode);
+        el.outgoingLinksList.appendChild(card);
+      });
+    }
+
+    // Backlinks (Incoming)
+    el.backlinksList.innerHTML = '';
+    const backlinks = concept.backlinks || [];
+    if (backlinks.length === 0) {
+      el.backlinksList.innerHTML = '<span class="empty-hint">Tidak ada konsep yang menautkan ke sini</span>';
+    } else {
+      backlinks.forEach(sourceId => {
+        const sourceNode = state.graphData?.nodes?.find(n => n.id === sourceId || n.slug === sourceId);
+        const card = createRelationCard(sourceId, sourceNode);
+        el.backlinksList.appendChild(card);
+      });
+    }
+  }
+
+  function createRelationCard(id, conceptNode) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'link-card';
+
+    const titleText = conceptNode ? conceptNode.title : id;
+    const typeText = conceptNode ? conceptNode.type : 'Konsep';
+
+    btn.innerHTML = `
+      <span class="link-card-type">[${typeText}]</span>
+      <span class="link-card-title">${titleText}</span>
+    `;
+
+    btn.addEventListener('click', () => {
+      selectConcept(id);
+    });
+
+    return btn;
+  }
+
+  function handleHashNavigation() {
+    const hash = window.location.hash;
+    if (hash && hash.length > 1) {
+      const conceptId = decodeURIComponent(hash.slice(1));
+      selectConcept(conceptId, false);
+    }
+  }
+
+  window.addEventListener('hashchange', handleHashNavigation);
+
+  // ==========================================================================
+  // Instant Fuzzy Search (Fuse.js)
+  // ==========================================================================
+  function initFuseSearch(nodes) {
+    const options = {
+      keys: [
+        { name: 'title', weight: 0.4 },
+        { name: 'tags', weight: 0.3 },
+        { name: 'description', weight: 0.15 },
+        { name: 'id', weight: 0.1 },
+        { name: 'body', weight: 0.05 }
+      ],
+      threshold: 0.35,
+      ignoreLocation: true,
+      includeScore: true
+    };
+
+    state.fuseIndex = new Fuse(nodes, options);
+  }
+
+  function openSearchDialog(initialQuery = '') {
+    if (!el.searchDialog.open) {
+      el.searchDialog.showModal();
+    }
+    el.searchInput.value = initialQuery;
+    el.searchInput.focus();
+    performSearch(initialQuery);
+  }
+
+  function closeSearchDialog() {
+    if (el.searchDialog.open) {
+      el.searchDialog.close();
+    }
+  }
+
+  function performSearch(query) {
+    if (!state.fuseIndex) return;
+
+    let results = [];
+    if (!query) {
+      // Default: show all or top recent items
+      results = (state.graphData?.nodes || []).slice(0, 25).map(node => ({ item: node }));
+    } else if (query.startsWith('#')) {
+      // Tag-specific search
+      const tagQuery = query.slice(1).toLowerCase();
+      results = (state.graphData?.nodes || [])
+        .filter(n => (n.tags || []).some(t => t.toLowerCase().includes(tagQuery)))
+        .map(node => ({ item: node }));
+    } else {
+      results = state.fuseIndex.search(query).slice(0, 30);
+    }
+
+    // Filter by type if a type pill is selected
+    if (state.search.selectedFilter !== 'all') {
+      results = results.filter(r => r.item.type === state.search.selectedFilter);
+    }
+
+    state.search.results = results;
+    state.search.selectedIndex = results.length > 0 ? 0 : -1;
+    renderSearchResults(results);
+  }
+
+  function renderSearchResults(results) {
+    el.searchResultsList.innerHTML = '';
+    el.searchResultsCount.textContent = `${results.length} hasil`;
+
+    if (results.length === 0) {
+      el.searchResultsList.innerHTML = '<div class="search-empty">Tidak ada konsep yang cocok dengan pencarian</div>';
+      return;
+    }
+
+    results.forEach((res, index) => {
+      const node = res.item;
+      const itemEl = document.createElement('div');
+      itemEl.className = 'search-result-item';
+      itemEl.setAttribute('role', 'option');
+      itemEl.setAttribute('aria-selected', index === state.search.selectedIndex ? 'true' : 'false');
+      itemEl.setAttribute('data-index', index);
+
+      const typeColor = getTypeColor(node.type);
+
+      itemEl.innerHTML = `
+        <div class="result-top-line">
+          <span class="result-title">${node.title}</span>
+          <span class="result-type" style="color: ${typeColor}; border-color: ${typeColor}">${node.type}</span>
+        </div>
+        ${node.description ? `<p class="result-desc">${node.description}</p>` : ''}
+      `;
+
+      itemEl.addEventListener('click', () => {
+        selectSearchResult(index);
+      });
+
+      el.searchResultsList.appendChild(itemEl);
+    });
+
+    scrollSelectedSearchResultIntoView();
+  }
+
+  function selectSearchResult(index) {
+    const result = state.search.results[index];
+    if (result && result.item) {
+      closeSearchDialog();
+      selectConcept(result.item.id);
+      if (window.innerWidth <= 1023) {
+        switchMobileTab('reader');
+      }
+    }
+  }
+
+  function updateSearchSelection(newIndex) {
+    const items = el.searchResultsList.querySelectorAll('.search-result-item');
+    if (items.length === 0) return;
+
+    if (state.search.selectedIndex >= 0 && items[state.search.selectedIndex]) {
+      items[state.search.selectedIndex].setAttribute('aria-selected', 'false');
+    }
+
+    state.search.selectedIndex = Math.max(0, Math.min(items.length - 1, newIndex));
+    if (items[state.search.selectedIndex]) {
+      items[state.search.selectedIndex].setAttribute('aria-selected', 'true');
+      scrollSelectedSearchResultIntoView();
+    }
+  }
+
+  function scrollSelectedSearchResultIntoView() {
+    const items = el.searchResultsList.querySelectorAll('.search-result-item');
+    const selected = items[state.search.selectedIndex];
+    if (selected) {
+      selected.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  // ==========================================================================
+  // Edge-TTS Read Aloud Player Dock
+  // ==========================================================================
+  function startTTS() {
+    if (!state.activeConcept || state.tts.chunks.length === 0) {
+      showToast('Tidak ada teks untuk dibaca');
+      return;
+    }
+
+    state.tts.active = true;
+    state.tts.conceptId = state.activeConcept.id;
+    state.tts.currentChunkIndex = 0;
+    el.ttsDock.hidden = false;
+    el.ttsDock.classList.remove('is-paused');
+
+    playCurrentChunk();
+  }
+
+  function stopTTS() {
+    if (state.tts.audioEl) {
+      state.tts.audioEl.pause();
+      state.tts.audioEl.src = '';
+    }
+    state.tts.active = false;
+    state.tts.isPlaying = false;
+    el.ttsDock.hidden = true;
+    el.ttsDock.classList.remove('is-paused');
+    updatePlayPauseIcons(false);
+    clearTTSHighlights();
+  }
+
+  function playCurrentChunk() {
+    if (state.tts.currentChunkIndex >= state.tts.chunks.length) {
+      // Reached the end of the concept
+      showToast('Selesai membaca konsep');
+      stopTTS();
+      return;
+    }
+
+    const chunkText = state.tts.chunks[state.tts.currentChunkIndex];
+    state.tts.isPlaying = true;
+    el.ttsDock.classList.remove('is-paused');
+    updatePlayPauseIcons(true);
+
+    // Update chunk status & text snippet
+    el.ttsChunkStatus.textContent = `Paragraf ${state.tts.currentChunkIndex + 1} dari ${state.tts.chunks.length}`;
+    el.ttsCurrentText.textContent = chunkText;
+
+    // Highlight the active paragraph in reader view
+    highlightTTSChunk(state.tts.currentChunkIndex);
+
+    // Prepare audio URL with Edge-TTS parameters
+    const params = new URLSearchParams({
+      text: chunkText,
+      voice: state.tts.voice,
+      rate: state.tts.rate
+    });
+
+    state.tts.audioEl.src = `/api/tts?${params.toString()}`;
+    state.tts.audioEl.play().catch(err => {
+      console.warn('Autoplay audio dicegah oleh peramban:', err);
+      state.tts.isPlaying = false;
+      updatePlayPauseIcons(false);
+      el.ttsDock.classList.add('is-paused');
+    });
+  }
+
+  function toggleTTSPlayPause() {
+    if (!state.tts.active) {
+      startTTS();
+      return;
+    }
+
+    if (state.tts.audioEl.paused) {
+      state.tts.audioEl.play().then(() => {
+        state.tts.isPlaying = true;
+        el.ttsDock.classList.remove('is-paused');
+        updatePlayPauseIcons(true);
+      }).catch(console.warn);
+    } else {
+      state.tts.audioEl.pause();
+      state.tts.isPlaying = false;
+      el.ttsDock.classList.add('is-paused');
+      updatePlayPauseIcons(false);
+    }
+  }
+
+  function nextTTSChunk() {
+    if (state.tts.currentChunkIndex + 1 < state.tts.chunks.length) {
+      state.tts.currentChunkIndex++;
+      playCurrentChunk();
+    } else {
+      showToast('Ini paragraf terakhir');
+    }
+  }
+
+  function prevTTSChunk() {
+    if (state.tts.currentChunkIndex > 0) {
+      state.tts.currentChunkIndex--;
+      playCurrentChunk();
+    }
+  }
+
+  function updatePlayPauseIcons(isPlaying) {
+    el.ttsIconPlay.hidden = isPlaying;
+    el.ttsIconPause.hidden = !isPlaying;
+  }
+
+  function highlightTTSChunk(chunkIdx) {
+    clearTTSHighlights();
+    const elem = state.tts.chunkElements[chunkIdx];
+    if (elem) {
+      elem.classList.add('tts-highlight');
+      elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function clearTTSHighlights() {
+    document.querySelectorAll('.markdown-body .tts-highlight').forEach(el => {
+      el.classList.remove('tts-highlight');
+    });
+  }
+
+  // Audio Event Listeners
+  el.ttsAudioElement.addEventListener('ended', () => {
+    state.tts.currentChunkIndex++;
+    playCurrentChunk();
+  });
+
+  el.ttsAudioElement.addEventListener('error', (e) => {
+    console.error('Audio playback error:', e);
+    showToast('Gagal memuat streaming audio Edge-TTS');
+    state.tts.isPlaying = false;
+    updatePlayPauseIcons(false);
+    el.ttsDock.classList.add('is-paused');
+  });
+
+  // ==========================================================================
+  // Live Auto-Sync (Server-Sent Events)
+  // ==========================================================================
+  function initLiveSync() {
+    try {
+      const eventSource = new EventSource('/api/events');
+
+      eventSource.onopen = () => {
+        el.syncStatus.classList.remove('is-syncing');
+        el.syncStatus.querySelector('.sync-text').textContent = 'Live Sync';
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          handleVaultUpdateEvent(payload);
+        } catch {
+          handleVaultUpdateEvent({ type: 'vault_updated' });
+        }
+      };
+
+      eventSource.addEventListener('vault_updated', () => {
+        handleVaultUpdateEvent({ type: 'vault_updated' });
+      });
+
+      eventSource.onerror = (err) => {
+        console.warn('SSE Error / Reconnecting...', err);
+        el.syncStatus.querySelector('.sync-text').textContent = 'Reconnecting';
+      };
+    } catch (err) {
+      console.warn('Gagal menghubungkan SSE:', err);
+    }
+  }
+
+  function handleVaultUpdateEvent(payload) {
+    el.syncStatus.classList.add('is-syncing');
+    showToast('Vault Synced · Data diperbarui');
+
+    setTimeout(() => {
+      el.syncStatus.classList.remove('is-syncing');
+    }, 2000);
+
+    // Refresh graph data in background
+    loadVaultGraph();
+
+    // If currently reading a concept, re-fetch and update content
+    if (state.activeConceptId) {
+      selectConcept(state.activeConceptId, false);
+    }
+  }
+
+  // ==========================================================================
+  // Mobile Tab Switching (≤1023px)
+  // ==========================================================================
+  function switchMobileTab(tab) {
+    state.activeTab = tab;
+
+    el.tabGraph.classList.toggle('is-active', tab === 'graph');
+    el.tabGraph.setAttribute('aria-selected', tab === 'graph' ? 'true' : 'false');
+
+    el.tabReader.classList.toggle('is-active', tab === 'reader');
+    el.tabReader.setAttribute('aria-selected', tab === 'reader' ? 'true' : 'false');
+
+    if (tab === 'graph') {
+      el.viewGraph.classList.remove('is-hidden');
+      el.viewReader.classList.add('is-hidden');
+      if (state.cy) {
+        state.cy.resize();
+      }
+    } else if (tab === 'reader') {
+      el.viewGraph.classList.add('is-hidden');
+      el.viewReader.classList.remove('is-hidden');
+    }
+  }
+
+  // ==========================================================================
+  // Event Listeners & Wiring
+  // ==========================================================================
+  function wireEventListeners() {
+    // Search Dialog Triggers
+    el.searchTriggerBtn.addEventListener('click', () => openSearchDialog());
+    el.emptySearchBtn?.addEventListener('click', () => openSearchDialog());
+    el.searchCloseBtn.addEventListener('click', () => closeSearchDialog());
+
+    // Search input keystrokes
+    el.searchInput.addEventListener('input', (e) => {
+      performSearch(e.target.value.trim());
+    });
+
+    el.searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        updateSearchSelection(state.search.selectedIndex + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        updateSearchSelection(state.search.selectedIndex - 1);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (state.search.selectedIndex >= 0) {
+          selectSearchResult(state.search.selectedIndex);
+        }
+      } else if (e.key === 'Escape') {
+        closeSearchDialog();
+      }
+    });
+
+    // Global keyboard shortcut: Cmd+K / Ctrl+K
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (el.searchDialog.open) {
+          closeSearchDialog();
+        } else {
+          openSearchDialog();
+        }
+      }
+    });
+
+    // Graph Controls
+    el.graphLayoutSelect.addEventListener('change', (e) => {
+      applyLayout(e.target.value);
+    });
+
+    el.graphFilterSelect.addEventListener('change', (e) => {
+      applyFilter(e.target.value);
+    });
+
+    el.btnFitGraph.addEventListener('click', () => {
+      if (state.cy) {
+        state.cy.fit(undefined, 30);
+      }
+    });
+
+    el.btnZoomIn.addEventListener('click', () => {
+      if (state.cy) {
+        state.cy.zoom({
+          level: state.cy.zoom() * 1.25,
+          renderedPosition: { x: el.cyContainer.clientWidth / 2, y: el.cyContainer.clientHeight / 2 }
+        });
+      }
+    });
+
+    el.btnZoomOut.addEventListener('click', () => {
+      if (state.cy) {
+        state.cy.zoom({
+          level: state.cy.zoom() / 1.25,
+          renderedPosition: { x: el.cyContainer.clientWidth / 2, y: el.cyContainer.clientHeight / 2 }
+        });
+      }
+    });
+
+    // Read Aloud / TTS Dock Controls
+    el.btnReadAloud.addEventListener('click', () => {
+      startTTS();
+    });
+
+    el.ttsBtnPlay.addEventListener('click', () => {
+      toggleTTSPlayPause();
+    });
+
+    el.ttsBtnNext.addEventListener('click', () => {
+      nextTTSChunk();
+    });
+
+    el.ttsBtnPrev.addEventListener('click', () => {
+      prevTTSChunk();
+    });
+
+    el.ttsVoiceSelect.addEventListener('change', (e) => {
+      state.tts.voice = e.target.value;
+      if (state.tts.active) {
+        playCurrentChunk();
+      }
+    });
+
+    el.ttsRateSelect.addEventListener('change', (e) => {
+      state.tts.rate = e.target.value;
+      if (state.tts.active) {
+        playCurrentChunk();
+      }
+    });
+
+    el.ttsBtnClose.addEventListener('click', () => {
+      stopTTS();
+    });
+
+    // Mobile Tabs
+    el.tabGraph.addEventListener('click', () => switchMobileTab('graph'));
+    el.tabReader.addEventListener('click', () => switchMobileTab('reader'));
+    el.tabSearch.addEventListener('click', () => openSearchDialog());
+
+    // User logout
+    el.logoutBtn.addEventListener('click', () => handleLogout());
+
+    // Window resize handler for Cytoscape
+    window.addEventListener('resize', () => {
+      if (state.cy) {
+        state.cy.resize();
+      }
+    });
+  }
+
+  // ==========================================================================
+  // App Entry Point
+  // ==========================================================================
+  async function initApp() {
+    wireEventListeners();
+    await loadVaultGraph();
+    initLiveSync();
+  }
+
+  // On initial DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+  });
+
+})();

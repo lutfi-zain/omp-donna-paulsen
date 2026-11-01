@@ -62,3 +62,13 @@ Open it in any browser; `${CLAUDE_SKILL_DIR}` resolves whether this runs as part
 of the `okf` plugin or as a standalone skills.sh skill. The page is
 deep-linkable: `?select=<concept-id>` or `#<concept-id>` opens that concept,
 `?layout=<name>` presets the layout.
+
+## Interactive Live Web Viewer (Donna OKF Reader)
+
+For a live, interactive web service with real-time vault file-watching, Cytoscape graph exploration, instant fuzzy search (`Cmd+K`), Edge-TTS read aloud streaming, and Google OAuth protection:
+
+```bash
+bun run --cwd /home/ubuntu/projects/omp-donna-paulsen viewer
+```
+
+Runs on port `3456` (or `PORT` env var). Serves `~/.donna/vault/.okf` by default with live Server-Sent Events (SSE) reload and Edge-TTS (`id-ID-GadisNeural` / `id-ID-ArdiNeural`).
