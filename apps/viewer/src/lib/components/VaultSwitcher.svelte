@@ -177,7 +177,7 @@
 
 <!-- Dialog Tambah Folder Vault -->
 <Dialog.Root bind:open={addDialogOpen}>
-  <Dialog.Content class="sm:max-w-lg max-h-[88vh] overflow-y-auto bg-card border-border text-foreground">
+  <Dialog.Content class="sm:max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden bg-card border-border text-foreground">
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-base font-semibold">
         <FolderOpenIcon class="size-4 text-primary" />

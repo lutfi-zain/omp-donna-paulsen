@@ -99,7 +99,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-2 w-full text-xs">
+<div class="flex flex-col gap-2 w-full max-w-full overflow-hidden text-xs">
   <div class="flex items-center justify-between">
     <span class="font-mono text-muted-foreground uppercase text-[10px] tracking-wider font-semibold">
       Jelajahi Pohon Folder Server
@@ -135,7 +135,7 @@
   </div>
 
   <!-- Breadcrumb & Navigation Bar -->
-  <div class="flex items-center gap-1 bg-muted/30 p-1.5 rounded-md border border-border">
+  <div class="flex items-center gap-1 bg-muted/30 p-1.5 rounded-md border border-border w-full max-w-full overflow-hidden">
     {#if parentPath}
       <Button
         variant="ghost"
@@ -149,7 +149,7 @@
       </Button>
     {/if}
 
-    <div class="flex-1 font-mono text-[11px] truncate text-foreground/90 px-1" title={currentPath}>
+    <div class="flex-1 min-w-0 font-mono text-[11px] truncate text-foreground/90 px-1" title={currentPath}>
       {currentPath || 'Memuat...'}
     </div>
 
@@ -177,7 +177,7 @@
   </div>
 
   <!-- Folder Directory Listing -->
-  <div class="max-h-48 overflow-y-auto rounded-md border border-border bg-background/50 p-1 space-y-0.5 font-mono text-xs">
+  <div class="max-h-48 overflow-y-auto overflow-x-hidden rounded-md border border-border bg-background/50 p-1 space-y-0.5 font-mono text-xs w-full max-w-full">
     {#if loading}
       <div class="py-4 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
         <RotateCwIcon class="size-3.5 animate-spin text-primary" />
@@ -195,7 +195,7 @@
       {#each folders as folder (folder.path)}
         {@const isChosen = selectedPath === folder.path || selectedPath === `${folder.path}/.okf`}
         <div
-          class="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded transition-colors {isChosen
+          class="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded transition-colors w-full max-w-full overflow-hidden {isChosen
             ? 'bg-primary/15 border border-primary/30 text-primary'
             : folder.isOkf
               ? 'hover:bg-primary/5 text-foreground'
@@ -204,7 +204,7 @@
           <!-- Enter Folder / Open Subdir -->
           <button
             type="button"
-            class="flex items-center gap-1.5 min-w-0 flex-1 text-left"
+            class="flex items-center gap-1.5 min-w-0 flex-1 text-left overflow-hidden"
             onclick={() => loadFolder(folder.path)}
             title="Klik untuk membuka isi folder {folder.name}"
           >
@@ -214,7 +214,7 @@
               <FolderIcon class="size-3.5 text-muted-foreground shrink-0" />
             {/if}
 
-            <span class="truncate font-mono text-[11px] {folder.isOkf ? 'font-semibold text-foreground' : ''}">
+            <span class="truncate font-mono text-[11px] min-w-0 {folder.isOkf ? 'font-semibold text-foreground' : ''}">
               {folder.name}
             </span>
 
@@ -227,7 +227,7 @@
           </button>
 
           <!-- Action Buttons -->
-          <div class="flex items-center gap-1 shrink-0">
+          <div class="flex items-center gap-1 shrink-0 ml-1">
             {#if folder.isOkf}
               <Button
                 variant={isChosen ? 'default' : 'outline'}
@@ -258,9 +258,9 @@
   {#if selectedPath}
     <div class="flex items-center gap-1.5 text-[11px] bg-primary/10 border border-primary/30 p-2 rounded-md">
       <CheckIcon class="size-3.5 text-primary shrink-0" />
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0 flex-1 overflow-hidden">
         <span class="text-[10px] font-mono uppercase text-primary/80 block font-semibold">Path Vault Terpilih:</span>
-        <span class="font-mono text-foreground font-semibold truncate block text-xs">{selectedPath}</span>
+        <span class="font-mono text-foreground font-semibold truncate block text-xs min-w-0" title={selectedPath}>{selectedPath}</span>
       </div>
     </div>
   {/if}
