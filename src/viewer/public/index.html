@@ -24,8 +24,8 @@
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 
-  <link rel="stylesheet" href="styles.css?v=11">
-  <script src="app.js?v=11" defer></script>
+  <link rel="stylesheet" href="styles.css?v=12">
+  <script src="app.js?v=12" defer></script>
 </head>
 <body>
   <!-- App Container -->
@@ -158,11 +158,11 @@
               <p id="concept-description" class="concept-description" hidden></p>
 
               <div class="concept-action-bar">
-                <button id="btn-read-aloud" class="btn-read-aloud" type="button" aria-label="Dengarkan konsep dengan suara alami">
+                <button id="btn-read-aloud" class="btn-read-aloud" type="button" aria-label="Listen to this document">
                   <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
                     <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" />
                   </svg>
-                  <span>Baca Nyaring (Edge-TTS)</span>
+                  <span>Listen to This Document</span>
                 </button>
 
                 <div id="concept-tags-list" class="concept-tags-list" aria-label="Tag Konsep"></div>
@@ -301,18 +301,18 @@
             </svg>
           </button>
 
-          <button id="tts-btn-play" class="btn-tts-play" type="button" title="Putar / Jeda" aria-label="Putar atau jeda audio">
+          <button id="tts-btn-play" class="btn-tts-play state-paused" type="button" title="Putar / Jeda" aria-label="Putar atau jeda audio">
             <!-- Loading Spinner Icon -->
-            <svg id="tts-icon-loading" class="icon icon-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20" aria-hidden="true" hidden>
+            <svg id="tts-icon-loading" class="icon icon-loading icon-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20" aria-hidden="true">
               <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
               <path d="M12 2a10 10 0 0110 10" stroke-linecap="round"/>
             </svg>
             <!-- Play Icon -->
-            <svg id="tts-icon-play" class="icon" viewBox="0 0 20 20" fill="currentColor" width="22" height="22" aria-hidden="true">
+            <svg id="tts-icon-play" class="icon icon-play" viewBox="0 0 20 20" fill="currentColor" width="22" height="22" aria-hidden="true">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
             </svg>
             <!-- Pause Icon -->
-            <svg id="tts-icon-pause" class="icon" viewBox="0 0 20 20" fill="currentColor" width="22" height="22" aria-hidden="true" hidden>
+            <svg id="tts-icon-pause" class="icon icon-pause" viewBox="0 0 20 20" fill="currentColor" width="22" height="22" aria-hidden="true">
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
             </svg>
           </button>

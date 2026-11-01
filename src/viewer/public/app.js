@@ -1656,24 +1656,17 @@
   function updateTTSPlayerUI(status) {
     if (!el.ttsBtnPlay) return;
 
+    el.ttsBtnPlay.classList.remove('state-loading', 'state-playing', 'state-paused');
+
     if (status === 'loading') {
-      if (el.ttsIconLoading) el.ttsIconLoading.hidden = false;
-      if (el.ttsIconPlay) el.ttsIconPlay.hidden = true;
-      if (el.ttsIconPause) el.ttsIconPause.hidden = true;
-      el.ttsBtnPlay.classList.add('is-loading');
-      el.ttsDock.classList.remove('is-paused');
+      el.ttsBtnPlay.classList.add('state-loading');
+      if (el.ttsDock) el.ttsDock.classList.remove('is-paused');
     } else if (status === 'playing') {
-      if (el.ttsIconLoading) el.ttsIconLoading.hidden = true;
-      if (el.ttsIconPlay) el.ttsIconPlay.hidden = true;
-      if (el.ttsIconPause) el.ttsIconPause.hidden = false;
-      el.ttsBtnPlay.classList.remove('is-loading');
-      el.ttsDock.classList.remove('is-paused');
+      el.ttsBtnPlay.classList.add('state-playing');
+      if (el.ttsDock) el.ttsDock.classList.remove('is-paused');
     } else if (status === 'paused') {
-      if (el.ttsIconLoading) el.ttsIconLoading.hidden = true;
-      if (el.ttsIconPlay) el.ttsIconPlay.hidden = false;
-      if (el.ttsIconPause) el.ttsIconPause.hidden = true;
-      el.ttsBtnPlay.classList.remove('is-loading');
-      el.ttsDock.classList.add('is-paused');
+      el.ttsBtnPlay.classList.add('state-paused');
+      if (el.ttsDock) el.ttsDock.classList.add('is-paused');
     }
   }
 

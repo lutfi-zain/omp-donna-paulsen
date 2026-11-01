@@ -1675,9 +1675,29 @@ select:focus:not(:focus-visible) {
   background-color: var(--accent-active);
 }
 
-.btn-tts-play.is-loading {
+/* TTS Play/Pause Class-Driven State Machine */
+.btn-tts-play .icon-loading,
+.btn-tts-play .icon-play,
+.btn-tts-play .icon-pause {
+  display: none !important;
+}
+
+/* Default / Paused State */
+.btn-tts-play.state-paused .icon-play {
+  display: block !important;
+}
+
+/* Playing State */
+.btn-tts-play.state-playing .icon-pause {
+  display: block !important;
+}
+
+/* Loading / Generating State */
+.btn-tts-play.state-loading {
   cursor: wait;
-  opacity: 0.9;
+}
+.btn-tts-play.state-loading .icon-loading {
+  display: block !important;
 }
 
 .icon-spin {
