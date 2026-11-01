@@ -1378,43 +1378,86 @@ select:focus:not(:focus-visible) {
 
 /* Hovered / Expanded State: OMP-Web Zoom */
 .doc-minimap:hover {
-  width: 260px;
-  background-color: rgba(13, 18, 24, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  width: 290px;
+  background-color: rgba(13, 18, 24, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: 12px 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
 }
 
 .doc-minimap:hover .minimap-rail::after {
   display: none;
 }
 
-.doc-minimap:hover .minimap-label {
-  opacity: 1;
-  pointer-events: auto;
-  max-width: 210px;
-  transform: translateX(0);
-}
-
 .doc-minimap:hover .minimap-item {
-  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 6px;
   border-radius: var(--radius-sm);
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, padding-left 0.15s ease;
+  width: 100%;
 }
 
-.doc-minimap:hover .minimap-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+/* Heading Level Indentation when hovered */
+.doc-minimap:hover .minimap-item[data-level="1"] {
+  padding-left: 6px;
+}
+.doc-minimap:hover .minimap-item[data-level="1"] .minimap-label {
+  color: #f1f5f9;
+  font-weight: 600;
 }
 
-.doc-minimap:hover .minimap-item:hover .minimap-label {
+.doc-minimap:hover .minimap-item[data-level="2"] {
+  padding-left: 18px;
+}
+.doc-minimap:hover .minimap-item[data-level="2"] .minimap-label {
   color: var(--text-primary);
 }
 
+.doc-minimap:hover .minimap-item[data-level="3"] {
+  padding-left: 30px;
+}
+.doc-minimap:hover .minimap-item[data-level="3"] .minimap-label {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.doc-minimap:hover .minimap-item[data-level="4"] {
+  padding-left: 42px;
+}
+.doc-minimap:hover .minimap-item[data-level="4"] .minimap-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.doc-minimap:hover .minimap-label {
+  opacity: 1;
+  pointer-events: auto;
+  max-width: 220px;
+  flex: 1;
+  text-align: left;
+  transform: translateX(0);
+}
+
+.doc-minimap:hover .minimap-bar {
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.doc-minimap:hover .minimap-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.doc-minimap:hover .minimap-item:hover .minimap-label {
+  color: #ffffff;
+}
+
 .doc-minimap:hover .minimap-item:hover .minimap-bar {
-  background-color: var(--text-primary);
+  background-color: #ffffff;
 }
 
 /* Active State (Scroll-spy tracking) */
