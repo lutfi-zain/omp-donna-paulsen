@@ -77,6 +77,46 @@
     })
   );
 
+  function getStorageKey(): string {
+    return `donna_expanded_dirs_${studio.activeVaultId || 'global'}`;
+  }
+
+  function loadSavedExpanded(): Record<string, boolean> | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(getStorageKey());
+      if (raw) return JSON.parse(raw) as Record<string, boolean>;
+    } catch {}
+    return null;
+  }
+
+  function saveExpanded(stateMap: Record<string, boolean>) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(getStorageKey(), JSON.stringify(stateMap));
+    } catch {}
+  }
+
+  function autoExpandAncestors(conceptId?: string | null) {
+    if (!conceptId) return;
+    const parts = conceptId.split('/');
+    if (parts.length <= 1) return;
+    let acc = '';
+    const updated = { ...expandedDirs };
+    let changed = false;
+    for (let i = 0; i < parts.length - 1; i++) {
+      acc = acc ? `${acc}/${parts[i]}` : parts[i];
+      if (!updated[acc]) {
+        updated[acc] = true;
+        changed = true;
+      }
+    }
+    if (changed) {
+      expandedDirs = updated;
+      saveExpanded(updated);
+    }
+  }
+
   async function fetchTree() {
     try {
       const q = studio.getVaultQuery();
@@ -84,13 +124,22 @@
       if (!res.ok) return;
       const data = (await res.json()) as VaultTreeNode[];
       tree = data;
-      const nextExpanded: Record<string, boolean> = { ...expandedDirs };
-      for (const node of data) {
-        if (node.type === 'directory' && nextExpanded[node.id] === undefined) {
-          nextExpanded[node.id] = true;
+
+      const saved = loadSavedExpanded();
+      if (saved) {
+        expandedDirs = saved;
+      } else {
+        // Expand root-level folders by default on fresh visit so files are visible
+        const initial: Record<string, boolean> = {};
+        for (const n of data) {
+          if (n.type === 'directory') {
+            initial[n.id] = true;
+          }
         }
+        expandedDirs = initial;
       }
-      expandedDirs = nextExpanded;
+
+      autoExpandAncestors(selectedId);
     } catch {
       // ignore
     }
@@ -106,11 +155,18 @@
     fetchTree();
   });
 
+  $effect(() => {
+    if (selectedId) {
+      autoExpandAncestors(selectedId);
+    }
+  });
+
   function toggleDir(id: string) {
     expandedDirs = {
       ...expandedDirs,
       [id]: !expandedDirs[id],
     };
+    saveExpanded(expandedDirs);
   }
 
   function expandAll(nodes: VaultTreeNode[], stateVal: boolean) {
@@ -125,6 +181,7 @@
     }
     walk(nodes);
     expandedDirs = next;
+    saveExpanded(next);
   }
 
   function filterNodes(nodes: VaultTreeNode[], q: string): VaultTreeNode[] {

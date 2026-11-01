@@ -186,6 +186,11 @@
         <Badge variant="outline" class="font-mono text-xs capitalize">
           {concept.status || 'unverified'}
         </Badge>
+        {#if studio.activeVault}
+          <Badge variant="secondary" class="font-mono text-[10px] bg-primary/10 text-primary border-primary/30">
+            {studio.activeVault.name}
+          </Badge>
+        {/if}
         {#if concept.stale_after}
           <Badge variant="secondary" class="font-mono text-xs">
             Stale: {concept.stale_after}
