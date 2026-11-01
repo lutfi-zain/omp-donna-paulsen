@@ -19,8 +19,8 @@
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <link rel="stylesheet" href="styles.css?v=2">
-  <script src="app.js?v=2" defer></script>
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script src="app.js?v=3" defer></script>
 </head>
 <body>
   <!-- App Container -->
@@ -333,27 +333,6 @@
           <div id="google-signin-btn"></div>
         </div>
 
-        <div class="auth-divider" role="separator" aria-label="atau">
-          <span>atau</span>
-        </div>
-
-        <!-- Executive Passcode Form -->
-        <form id="passcode-form" class="passcode-form" aria-label="Login dengan Passcode">
-          <label for="passcode-input" class="passcode-label">Executive Passcode</label>
-          <div class="passcode-input-group">
-            <input
-              type="password"
-              id="passcode-input"
-              class="passcode-input"
-              placeholder="Masukkan Passcode..."
-              autocomplete="current-password"
-              required
-            />
-            <button type="submit" id="passcode-submit-btn" class="passcode-submit-btn" aria-label="Kirim Passcode">
-              Buka Vault
-            </button>
-          </div>
-        </form>
 
         <div id="auth-loading" class="auth-loading" hidden>
           <span class="spinner" aria-hidden="true"></span>

@@ -128,9 +128,6 @@
     googleSigninBtn: document.getElementById('google-signin-btn'),
     authErrorMsg: document.getElementById('auth-error-msg'),
     authLoading: document.getElementById('auth-loading'),
-    passcodeForm: document.getElementById('passcode-form'),
-    passcodeInput: document.getElementById('passcode-input'),
-    passcodeSubmitBtn: document.getElementById('passcode-submit-btn'),
     // Toast Container
     toastContainer: document.getElementById('toast-container')
   };
@@ -285,38 +282,6 @@
     el.authErrorMsg.hidden = false;
   }
 
-  async function handlePasscodeSubmit(e) {
-    e.preventDefault();
-    const passcode = (el.passcodeInput.value || '').trim();
-    if (!passcode) return;
-
-    el.authLoading.hidden = false;
-    el.authErrorMsg.hidden = true;
-    el.passcodeSubmitBtn.disabled = true;
-
-    try {
-      const res = await fetch('/api/auth/passcode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode }),
-        credentials: 'include'
-      });
-      const data = await res.json();
-      el.authLoading.hidden = true;
-      el.passcodeSubmitBtn.disabled = false;
-
-      if (res.ok && data.ok && data.user) {
-        state.currentUser = data.user;
-        onAuthSuccess(data.user);
-      } else {
-        showAuthError(data.error || 'Executive Passcode salah.');
-      }
-    } catch (err) {
-      el.authLoading.hidden = true;
-      el.passcodeSubmitBtn.disabled = false;
-      showAuthError('Gagal menghubungi server.');
-    }
-  }
 
   async function handleLogout() {
     try {
@@ -1372,10 +1337,6 @@
     // User logout
     el.logoutBtn.addEventListener('click', () => handleLogout());
 
-    // Passcode submission
-    if (el.passcodeForm) {
-      el.passcodeForm.addEventListener('submit', handlePasscodeSubmit);
-    }
 
     // Window resize handler for Cytoscape
     window.addEventListener('resize', () => {
