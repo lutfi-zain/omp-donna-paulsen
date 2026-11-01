@@ -234,7 +234,11 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   let file = Bun.file(filePath);
   if (await file.exists()) {
-    return new Response(file);
+    return new Response(file, {
+      headers: {
+        "Cache-Control": "no-cache, must-revalidate",
+      },
+    });
   }
 
   // SPA fallback for non-API routes
