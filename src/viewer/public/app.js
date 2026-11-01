@@ -40,6 +40,8 @@
     activeTab: 'explorer',
     mainViewMode: 'reader',
     sidebarCollapsed: localStorage.getItem('donna_sidebar_collapsed') === 'true',
+    readerWidth: localStorage.getItem('donna_reader_width') || '760px',
+    codeWrap: localStorage.getItem('donna_code_wrap') !== 'false',
     pendingGraphRender: false,
     tts: {
       active: false,
@@ -155,6 +157,13 @@
     searchTypeFilters: document.getElementById('search-type-filters'),
     searchResultsList: document.getElementById('search-results-list'),
     searchResultsCount: document.getElementById('search-results-count'),
+    // Appearance Settings & Mobile Search
+    btnMobileSearch: document.getElementById('btn-mobile-search'),
+    btnAppearanceSettings: document.getElementById('btn-appearance-settings'),
+    settingsDialog: document.getElementById('settings-dialog'),
+    settingsCloseBtn: document.getElementById('settings-close-btn'),
+    settingCodeWrap: document.getElementById('setting-code-wrap'),
+    widthOptionBtns: document.querySelectorAll('.width-option-btn'),
 
     // Auth Dialog
     authDialog: document.getElementById('auth-dialog'),
@@ -1429,7 +1438,7 @@
 
     el.markdownBody.innerHTML = cleanHtml;
 
-    // Code Syntax Highlighting via Highlight.js & Copy Button Injection
+    // Code Syntax Highlighting via Highlight.js & Actions Injection (Wrap + Copy)
     if (typeof hljs !== 'undefined') {
       el.markdownBody.querySelectorAll('pre code').forEach((block) => {
         try {
@@ -1437,10 +1446,31 @@
         } catch (_) {}
 
         const pre = block.parentElement;
-        if (pre && !pre.querySelector('.btn-copy-code')) {
+        if (pre && !pre.querySelector('.code-actions-wrapper')) {
+          const actionsWrapper = document.createElement('div');
+          actionsWrapper.className = 'code-actions-wrapper';
+
+          // Wrap Toggle Button
+          const wrapBtn = document.createElement('button');
+          wrapBtn.type = 'button';
+          wrapBtn.className = 'btn-code-action btn-wrap-code is-active';
+          wrapBtn.title = 'Bungkus Baris Kode (Line Wrap)';
+          wrapBtn.innerHTML = `
+            <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13" aria-hidden="true">
+              <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <span>Wrap</span>
+          `;
+          wrapBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isNoWrap = pre.classList.toggle('no-wrap');
+            wrapBtn.classList.toggle('is-active', !isNoWrap);
+          });
+
+          // Copy Button
           const copyBtn = document.createElement('button');
           copyBtn.type = 'button';
-          copyBtn.className = 'btn-copy-code';
+          copyBtn.className = 'btn-code-action btn-copy-code';
           copyBtn.setAttribute('aria-label', 'Salin kode ke clipboard');
           copyBtn.title = 'Salin kode';
           copyBtn.innerHTML = `
@@ -1466,7 +1496,10 @@
               showToast('Gagal menyalin kode');
             });
           });
-          pre.appendChild(copyBtn);
+
+          actionsWrapper.appendChild(wrapBtn);
+          actionsWrapper.appendChild(copyBtn);
+          pre.appendChild(actionsWrapper);
         }
       });
     }
@@ -2185,6 +2218,41 @@
     }
     // User logout
     el.logoutBtn.addEventListener('click', () => handleLogout());
+    // Mobile search button in header
+    if (el.btnMobileSearch) {
+      el.btnMobileSearch.addEventListener('click', () => openSearchDialog());
+    }
+
+    // Appearance Settings Dialog
+    if (el.btnAppearanceSettings) {
+      el.btnAppearanceSettings.addEventListener('click', openSettingsDialog);
+    }
+    if (el.settingsCloseBtn) {
+      el.settingsCloseBtn.addEventListener('click', closeSettingsDialog);
+    }
+    if (el.settingsDialog) {
+      el.settingsDialog.addEventListener('click', (e) => {
+        if (e.target === el.settingsDialog) closeSettingsDialog();
+      });
+    }
+
+    // Width buttons
+    if (el.widthOptionBtns) {
+      el.widthOptionBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const width = btn.getAttribute('data-width');
+          if (width) applyReaderWidth(width);
+        });
+      });
+    }
+
+    // Global Code Wrap Checkbox
+    if (el.settingCodeWrap) {
+      el.settingCodeWrap.addEventListener('change', (e) => {
+        applyCodeWrap(e.target.checked);
+      });
+    }
+
 
 
     // Window resize handler for Cytoscape
@@ -2194,6 +2262,49 @@
       }
     });
   }
+  // ==========================================================================
+  // Appearance & Content Width Settings
+  // ==========================================================================
+  function applyReaderWidth(width) {
+    state.readerWidth = width;
+    document.documentElement.style.setProperty('--reader-max-width', width);
+    try {
+      localStorage.setItem('donna_reader_width', width);
+    } catch (_) {}
+
+    if (el.widthOptionBtns) {
+      el.widthOptionBtns.forEach(btn => {
+        const isActive = btn.getAttribute('data-width') === width;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+      });
+    }
+  }
+
+  function applyCodeWrap(wrap) {
+    state.codeWrap = wrap;
+    document.body.classList.toggle('code-no-wrap', !wrap);
+    try {
+      localStorage.setItem('donna_code_wrap', wrap ? 'true' : 'false');
+    } catch (_) {}
+
+    if (el.settingCodeWrap) {
+      el.settingCodeWrap.checked = wrap;
+    }
+  }
+
+  function openSettingsDialog() {
+    if (el.settingsDialog && !el.settingsDialog.open) {
+      el.settingsDialog.showModal();
+    }
+  }
+
+  function closeSettingsDialog() {
+    if (el.settingsDialog && el.settingsDialog.open) {
+      el.settingsDialog.close();
+    }
+  }
+
 
   // ==========================================================================
   // App Entry Point
@@ -2226,6 +2337,8 @@
 
   // ==========================================================================
   async function initApp() {
+    applyReaderWidth(state.readerWidth);
+    applyCodeWrap(state.codeWrap);
     if (state.sidebarCollapsed && el.appRoot) {
       el.appRoot.classList.add('sidebar-collapsed');
     }

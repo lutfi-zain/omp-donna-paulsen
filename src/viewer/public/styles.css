@@ -63,6 +63,7 @@
   --radius-md: 6px;
   --radius-lg: 6px;
   --radius-full: 6px;
+  --reader-max-width: 760px;
 
   --focus-ring: 2px solid var(--accent-primary);
   --focus-offset: 2px;
@@ -976,11 +977,11 @@ select:focus:not(:focus-visible) {
 
 /* Concept Article View */
 .reader-article {
-  max-width: 760px;
+  max-width: var(--reader-max-width, 760px);
   margin: 0 auto;
   width: 100%;
+  transition: max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .concept-header {
   border-bottom: 1px solid var(--border-default);
   padding-bottom: 20px;
@@ -1214,51 +1215,85 @@ select:focus:not(:focus-visible) {
   padding: 0 !important;
   font-size: 0.86rem;
   font-family: var(--font-mono);
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
 .markdown-body pre code.hljs {
   background: transparent !important;
   padding: 0 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
-/* Floating Copy Code Button */
-.btn-copy-code {
+/* Non-wrapping mode (when toggled OFF) */
+body.code-no-wrap .markdown-body pre code,
+body.code-no-wrap .markdown-body pre code.hljs,
+.markdown-body pre.no-wrap code,
+.markdown-body pre.no-wrap code.hljs {
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
+/* Floating Code Action Controls (Wrap + Copy) */
+.code-actions-wrapper {
   position: absolute;
   top: 8px;
   right: 8px;
-  height: 28px;
-  padding: 0 10px;
-  background-color: rgba(19, 27, 36, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.markdown-body pre:hover .code-actions-wrapper,
+.code-actions-wrapper:focus-within {
+  opacity: 1;
+}
+
+.btn-code-action {
+  height: 26px;
+  padding: 0 8px;
+  background-color: rgba(19, 27, 36, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.725rem;
   font-family: var(--font-mono);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  z-index: 5;
+  transition: all 0.15s ease;
 }
 
-.markdown-body pre:hover .btn-copy-code,
-.btn-copy-code:focus-visible {
-  opacity: 1;
-}
-
-.btn-copy-code:hover {
+.btn-code-action:hover {
   background-color: var(--bg-subtle);
   color: var(--text-primary);
   border-color: var(--text-muted);
 }
 
-.btn-copy-code.is-copied {
+.btn-code-action.is-active {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: var(--accent-primary);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.btn-code-action.is-copied {
   color: var(--status-human);
   border-color: var(--status-human);
+}
+
+.btn-copy-code {
+  /* Compatibility alias */
+  display: inline-flex;
 }
 
 .markdown-body a {
@@ -2028,6 +2063,130 @@ select:focus:not(:focus-visible) {
   padding: 2px 4px;
 }
 
+
+/* ==========================================================================
+   Appearance & Content Width Settings Dialog
+   ========================================================================== */
+.settings-dialog-content {
+  max-width: 440px;
+  width: 90vw;
+  padding: 20px 24px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.settings-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 18px;
+}
+
+.settings-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.setting-item {
+  margin-bottom: 20px;
+}
+
+.setting-item-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.setting-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.setting-item-desc {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+}
+
+.width-options-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.width-option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.width-option-btn:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.width-option-btn.is-active {
+  background-color: rgba(56, 189, 248, 0.12);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.width-name {
+  font-size: 0.8rem;
+}
+
+.width-value {
+  font-size: 0.675rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.width-option-btn.is-active .width-value {
+  color: var(--accent-primary);
+}
+
+.setting-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.setting-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.mobile-search-btn {
+  display: none;
+}
+
 /* ==========================================================================
    Google Authentication Modal
    ========================================================================== */
@@ -2187,14 +2346,29 @@ select:focus:not(:focus-visible) {
    Responsive Breakpoints
    ========================================================================== */
 @media (max-width: 1023px) {
+  .mobile-search-btn {
+    display: inline-flex !important;
+  }
+
   .btn-sidebar-toggle {
     display: none;
   }
 
   .main-view-switcher {
-    display: none;
+    display: none !important;
   }
 
+  .header-center {
+    display: none !important;
+  }
+
+  .stats-badge {
+    display: none !important;
+  }
+
+  .user-name {
+    display: none !important;
+  }
   .app-main {
     flex-direction: column;
     height: calc(100vh - var(--header-height) - var(--tabbar-height));
