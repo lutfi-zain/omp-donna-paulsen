@@ -66,7 +66,7 @@
 
     <VaultSwitcher />
 
-    <nav class="flex items-center gap-0.5 sm:gap-1" aria-label="Navigasi Utama">
+    <nav class="hidden md:flex items-center gap-0.5 sm:gap-1" aria-label="Navigasi Utama">
       {#each navItems as item (item.href)}
         {@const active = page.url.pathname === item.href}
         {@const Icon = item.icon}

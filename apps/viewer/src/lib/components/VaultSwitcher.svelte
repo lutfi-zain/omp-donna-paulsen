@@ -99,7 +99,7 @@
         variant="outline"
         size="xs"
         data-testid="vault-switcher-btn"
-        class="h-7 max-w-40 sm:max-w-56 px-2 gap-1.5 border-border bg-background/50 hover:bg-background/90 text-left font-mono text-[11px] shrink-0"
+        class="h-7 max-w-[125px] sm:max-w-48 md:max-w-56 px-2 gap-1.5 border-border bg-background/50 hover:bg-background/90 text-left font-mono text-[11px] shrink-0"
         title="Vault OKF Aktif: {activeVault.name} ({activeVault.path})"
         aria-label="Pilih Vault OKF"
         {...props}

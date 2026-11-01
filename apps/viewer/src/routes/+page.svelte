@@ -33,25 +33,4 @@
     <DocumentPane conceptId={studio.selectedConceptId} />
   </div>
 
-  <!-- Mobile Bottom Switcher on / -->
-  <div class="flex md:hidden h-12 shrink-0 border-t border-border bg-card items-center justify-around px-2 gap-2 z-20">
-    <Button
-      variant={studio.mobileTab === 'explorer' ? 'secondary' : 'ghost'}
-      size="sm"
-      class="flex-1 gap-1.5"
-      onclick={() => (studio.mobileTab = 'explorer')}
-    >
-      <FolderIcon />
-      <span>Explorer</span>
-    </Button>
-    <Button
-      variant={studio.mobileTab === 'reader' ? 'secondary' : 'ghost'}
-      size="sm"
-      class="flex-1 gap-1.5"
-      onclick={() => (studio.mobileTab = 'reader')}
-    >
-      <BookOpenIcon />
-      <span>Bacaan</span>
-    </Button>
-  </div>
 </div>

@@ -10,6 +10,11 @@
   import { Button } from '$lib/components/ui/button';
   import { studio, type SessionUser } from '$lib/stores/studio.svelte';
   import XIcon from '@lucide/svelte/icons/x';
+  import BookOpenIcon from '@lucide/svelte/icons/book-open';
+  import FolderIcon from '@lucide/svelte/icons/folder';
+  import NetworkIcon from '@lucide/svelte/icons/network';
+  import PenToolIcon from '@lucide/svelte/icons/pen-tool';
+  import GitGraphIcon from '@lucide/svelte/icons/git-graph';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -165,6 +170,61 @@
         {@render children()}
       </main>
     </div>
+
+    <!-- Universal Mobile Bottom Navigation Bar (md:hidden) -->
+    <nav
+      data-testid="mobile-bottom-nav"
+      class="flex md:hidden h-12 w-full max-w-full shrink-0 border-t border-border bg-card/95 backdrop-blur items-center justify-around px-1 z-30"
+      aria-label="Navigasi Bawah Mobile"
+    >
+      <a
+        href="/"
+        onclick={() => { studio.mobileTab = 'reader'; }}
+        class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] transition-colors {page.url.pathname === '/' && studio.mobileTab === 'reader' ? 'text-primary font-semibold' : 'text-muted-foreground'}"
+      >
+        <BookOpenIcon class="size-4" />
+        <span>Dokumen</span>
+      </a>
+
+      <button
+        type="button"
+        onclick={() => {
+          if (page.url.pathname === '/') {
+            studio.mobileTab = 'explorer';
+          } else {
+            studio.mobileDrawerOpen = !studio.mobileDrawerOpen;
+          }
+        }}
+        class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] transition-colors {page.url.pathname === '/' && studio.mobileTab === 'explorer' ? 'text-primary font-semibold' : studio.mobileDrawerOpen ? 'text-primary font-semibold' : 'text-muted-foreground'}"
+      >
+        <FolderIcon class="size-4" />
+        <span>Berkas</span>
+      </button>
+
+      <a
+        href="/graph"
+        class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] transition-colors {page.url.pathname === '/graph' ? 'text-primary font-semibold' : 'text-muted-foreground'}"
+      >
+        <NetworkIcon class="size-4" />
+        <span>Graf</span>
+      </a>
+
+      <a
+        href="/canvas"
+        class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] transition-colors {page.url.pathname === '/canvas' ? 'text-primary font-semibold' : 'text-muted-foreground'}"
+      >
+        <PenToolIcon class="size-4" />
+        <span>Kanvas</span>
+      </a>
+
+      <a
+        href="/mermaid"
+        class="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] transition-colors {page.url.pathname === '/mermaid' ? 'text-primary font-semibold' : 'text-muted-foreground'}"
+      >
+        <GitGraphIcon class="size-4" />
+        <span>Mermaid</span>
+      </a>
+    </nav>
 
     <TTSDock />
   {:else}
