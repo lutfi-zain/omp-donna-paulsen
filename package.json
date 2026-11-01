@@ -23,7 +23,9 @@
   "scripts": {
     "build": "tsc",
     "viewer": "bun run src/viewer/server.ts",
-    "viewer:serve": "bun run src/viewer/server.ts"
+    "viewer:serve": "bun run src/viewer/server.ts",
+    "viewer:dev": "bun run --cwd apps/viewer dev",
+    "viewer:build": "bun run --cwd apps/viewer build"
   },
   "files": [
     "src/",

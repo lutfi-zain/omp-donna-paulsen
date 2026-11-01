@@ -1,0 +1,13 @@
+{
+  "cookies": [
+    {
+      "name": "donna_session",
+      "value": "eyJlbWFpbCI6Imx1dGZpZG16QGdtYWlsLmNvbSIsIm5hbWUiOiJMdXRmaSIsInBpY3R1cmUiOiIiLCJpc3N1ZWRBdCI6MTc5MjgyMDcwOTE0MiwiZXhwaXJlc0F0IjoxNzkzNDI1NTA5MTQyfQ.O9GYglueXn74WQfxvtaQVujCb6KXK2zP60bCQYaGWqg",
+      "domain": "localhost",
+      "path": "/",
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ]
+}

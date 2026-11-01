@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #080b0f;
+  --bg-panel: #0d1218;
+  --bg-surface: #111822;
+  --bg-subtle: #1a2233;
+  --border-default: #1e2a3d;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@theme {
+  --color-background: var(--bg-canvas);
+  --color-foreground: var(--text-primary);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bg-canvas);
+  --color-secondary: var(--bg-subtle);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--bg-surface);
+  --color-muted-foreground: var(--text-muted);
+  --color-border: var(--border-default);
+  --color-card: var(--bg-panel);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--bg-panel);
+  --color-popover-foreground: var(--text-primary);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+}
+
+/* Shared Editorial Typography for both ReaderView (.markdown-prose) and Milkdown WYSIWYG (.milkdown .ProseMirror) */
+.markdown-prose h1,
+.milkdown .ProseMirror h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-primary);
+  margin-top: 1.4rem;
+  margin-bottom: 0.7rem;
+}
+
+.markdown-prose h2,
+.milkdown .ProseMirror h2 {
+  font-size: 1.32rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 0.4rem;
+  margin-top: 1.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.markdown-prose h3,
+.milkdown .ProseMirror h3 {
+  font-size: 1.12rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-top: 1.15rem;
+  margin-bottom: 0.45rem;
+}
+
+.markdown-prose h4,
+.milkdown .ProseMirror h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.markdown-prose p,
+.milkdown .ProseMirror p {
+  margin-bottom: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.72;
+}
+
+.markdown-prose ul,
+.milkdown .ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.markdown-prose ol,
+.milkdown .ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.markdown-prose li,
+.milkdown .ProseMirror li {
+  margin-bottom: 0.35rem;
+  line-height: 1.65;
+}
+
+.markdown-prose li > p,
+.milkdown .ProseMirror li > p {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-prose blockquote,
+.milkdown .ProseMirror blockquote {
+  border-left: 3px solid var(--accent);
+  background: rgba(56, 189, 248, 0.06);
+  padding: 0.65rem 1rem;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-secondary);
+  margin: 1rem 0;
+}
+
+.markdown-prose code,
+.milkdown .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-subtle);
+  color: #7dd3fc;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+}
+
+.markdown-prose pre,
+.milkdown .ProseMirror pre {
+  background: #080b10;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-prose pre code,
+.milkdown .ProseMirror pre code {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.markdown-prose table,
+.milkdown .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.markdown-prose th,
+.markdown-prose td,
+.milkdown .ProseMirror th,
+.milkdown .ProseMirror td {
+  border: 1px solid var(--border-default);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+}
+
+.markdown-prose th,
+.milkdown .ProseMirror th {
+  background: var(--bg-surface);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.markdown-prose hr,
+.milkdown .ProseMirror hr {
+  border: 0;
+  border-top: 1px solid var(--border-default);
+  margin: 1.5rem 0;
+}
+
+.markdown-prose a,
+.milkdown .ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.milkdown .ProseMirror,
+.milkdown [contenteditable] {
+  min-height: 440px;
+  outline: none;
+  color: var(--text-primary);
+  line-height: 1.72;
+  caret-color: var(--accent);
+}
+
+.milkdown .ProseMirror > *:first-child {
+  margin-top: 0;
+}
+
+.tl-watermark_SEE-LICENSE {
+  display: none !important;
+}
