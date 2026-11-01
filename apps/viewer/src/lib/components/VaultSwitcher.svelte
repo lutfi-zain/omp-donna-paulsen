@@ -12,6 +12,7 @@
   import CheckIcon from '@lucide/svelte/icons/check';
   import PlusIcon from '@lucide/svelte/icons/plus';
   import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
+  import ServerFolderPicker from '$lib/components/ServerFolderPicker.svelte';
 
   let popoverOpen = $state(false);
   let addDialogOpen = $state(false);
@@ -20,6 +21,13 @@
   let newVaultPath = $state('');
   let addError = $state('');
   let isSubmitting = $state(false);
+
+  function handleFolderChosen(path: string, suggestedName?: string) {
+    newVaultPath = path;
+    if (!newVaultName.trim() && suggestedName) {
+      newVaultName = suggestedName;
+    }
+  }
 
   onMount(async () => {
     if (typeof localStorage !== 'undefined') {
@@ -169,18 +177,21 @@
 
 <!-- Dialog Tambah Folder Vault -->
 <Dialog.Root bind:open={addDialogOpen}>
-  <Dialog.Content class="sm:max-w-md bg-card border-border text-foreground">
+  <Dialog.Content class="sm:max-w-lg max-h-[88vh] overflow-y-auto bg-card border-border text-foreground">
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-base font-semibold">
         <FolderOpenIcon class="size-4 text-primary" />
         Buka Folder Vault OKF Baru
       </Dialog.Title>
       <Dialog.Description class="text-xs text-muted-foreground">
-        Masukkan path direktori lokal server yang berisi berkas Open Knowledge Format (<code class="font-mono text-foreground">.okf</code>).
+        Pilih direktori di server yang berisi berkas Open Knowledge Format (<code class="font-mono text-foreground">.okf</code>) atau ketik path manual.
       </Dialog.Description>
     </Dialog.Header>
 
     <div class="space-y-3 py-2 text-xs">
+      <!-- Visual Server Folder Tree Browser -->
+      <ServerFolderPicker bind:selectedPath={newVaultPath} onSelectPath={handleFolderChosen} />
+
       <div>
         <label for="vault-name" class="block font-medium mb-1 text-muted-foreground">
           Nama Tampilan Vault
