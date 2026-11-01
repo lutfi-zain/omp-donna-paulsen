@@ -18,6 +18,42 @@ export const COOKIE_NAME = "donna_session";
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 const SECRET_PATH = path.join(os.homedir(), ".donna/session.secret");
+const PASSCODE_PATH = path.join(os.homedir(), ".donna/passcode");
+
+export function getVaultPasscode(): string {
+  if (process.env.DONNA_VAULT_PASSCODE) {
+    return process.env.DONNA_VAULT_PASSCODE.trim();
+  }
+  if (fs.existsSync(PASSCODE_PATH)) {
+    try {
+      const existing = fs.readFileSync(PASSCODE_PATH, "utf-8").trim();
+      if (existing) return existing;
+    } catch {}
+  }
+  const defaultPass = "donna2026";
+  try {
+    const dir = path.dirname(PASSCODE_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(PASSCODE_PATH, defaultPass, { encoding: "utf-8", mode: 0o600 });
+  } catch {}
+  return defaultPass;
+}
+
+export function verifyPasscode(passcode: string): UserSession | null {
+  if (!passcode || typeof passcode !== "string") return null;
+  const expected = getVaultPasscode();
+  if (passcode.trim() !== expected) return null;
+
+  const now = Date.now();
+  return {
+    email: ALLOWED_EMAIL,
+    name: "Lutfi Zain",
+    picture: "",
+    issuedAt: now,
+    expiresAt: now + SESSION_MAX_AGE_SECONDS * 1000,
+  };
+}
+
 
 let cachedSecret: string | null = null;
 

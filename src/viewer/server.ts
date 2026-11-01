@@ -3,6 +3,7 @@ import { VaultManager, DEFAULT_VAULT_PATH } from "./vault.js";
 import {
   getSession,
   verifyGoogleToken,
+  verifyPasscode,
   createSessionCookie,
   clearSessionCookie,
   GOOGLE_CLIENT_ID,
@@ -92,6 +93,34 @@ export async function handleRequest(req: Request): Promise<Response> {
       return Response.json({ ok: false, error: "Authentication failed" }, { status: 500 });
     }
   }
+  // Passcode Authentication Fallback
+  if (method === "POST" && pathname === "/api/auth/passcode") {
+    try {
+      const body = (await req.json()) as { passcode?: string };
+      const session = verifyPasscode(body.passcode || "");
+      if (!session) {
+        return Response.json({ ok: false, error: "Executive Passcode salah." }, { status: 401 });
+      }
+      const cookieHeader = createSessionCookie(session);
+      return Response.json(
+        {
+          ok: true,
+          user: {
+            email: session.email,
+            name: session.name,
+          },
+        },
+        {
+          headers: {
+            "Set-Cookie": cookieHeader,
+          },
+        }
+      );
+    } catch (err) {
+      return Response.json({ ok: false, error: "Permintaan tidak valid." }, { status: 400 });
+    }
+  }
+
 
   // Auth Config
   if (method === "GET" && pathname === "/api/auth/config") {

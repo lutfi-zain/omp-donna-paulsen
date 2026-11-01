@@ -333,6 +333,28 @@
           <div id="google-signin-btn"></div>
         </div>
 
+        <div class="auth-divider" role="separator" aria-label="atau">
+          <span>atau</span>
+        </div>
+
+        <!-- Executive Passcode Form -->
+        <form id="passcode-form" class="passcode-form" aria-label="Login dengan Passcode">
+          <label for="passcode-input" class="passcode-label">Executive Passcode</label>
+          <div class="passcode-input-group">
+            <input
+              type="password"
+              id="passcode-input"
+              class="passcode-input"
+              placeholder="Masukkan Passcode..."
+              autocomplete="current-password"
+              required
+            />
+            <button type="submit" id="passcode-submit-btn" class="passcode-submit-btn" aria-label="Kirim Passcode">
+              Buka Vault
+            </button>
+          </div>
+        </form>
+
         <div id="auth-loading" class="auth-loading" hidden>
           <span class="spinner" aria-hidden="true"></span>
           <span>Memverifikasi otentikasi...</span>
