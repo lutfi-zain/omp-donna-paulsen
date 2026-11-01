@@ -9,7 +9,7 @@
   // ==========================================================================
   // Global Constants & State
   // ==========================================================================
-  const GOOGLE_CLIENT_ID = '389746131392-6s6f7i2ci1sbm1gqafhqkkpmphefocte.apps.googleusercontent.com';
+  let GOOGLE_CLIENT_ID = '603017672414-snngu7phn977qp54cnkuohf4heil31j4.apps.googleusercontent.com';
   const ALLOWED_EMAIL = 'lutfidmz@gmail.com';
 
   const TYPE_COLORS = {
@@ -209,7 +209,7 @@
     initGoogleSignIn();
   }
 
-  function initGoogleSignIn() {
+  async function initGoogleSignIn() {
     if (typeof window.google === 'undefined' || !window.google.accounts) {
       // Retry in 200ms if script is still loading
       setTimeout(initGoogleSignIn, 200);
@@ -217,6 +217,14 @@
     }
 
     try {
+      try {
+        const res = await fetch('/api/auth/config');
+        if (res.ok) {
+          const cfg = await res.json();
+          if (cfg.clientId) GOOGLE_CLIENT_ID = cfg.clientId;
+        }
+      } catch (_) {}
+
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: handleGoogleCredentialResponse,

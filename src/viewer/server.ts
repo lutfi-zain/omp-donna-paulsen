@@ -5,6 +5,7 @@ import {
   verifyGoogleToken,
   createSessionCookie,
   clearSessionCookie,
+  GOOGLE_CLIENT_ID,
 } from "./auth.js";
 import { streamTTS } from "./tts.js";
 import type { SSEEvent } from "./types.js";
@@ -90,6 +91,13 @@ export async function handleRequest(req: Request): Promise<Response> {
       console.error("[Server] Google auth error:", err);
       return Response.json({ ok: false, error: "Authentication failed" }, { status: 500 });
     }
+  }
+
+  // Auth Config
+  if (method === "GET" && pathname === "/api/auth/config") {
+    return Response.json({
+      clientId: GOOGLE_CLIENT_ID,
+    });
   }
 
   // 2. Current Session Check

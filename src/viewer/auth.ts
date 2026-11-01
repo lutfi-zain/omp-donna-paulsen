@@ -5,7 +5,14 @@ import crypto from "node:crypto";
 import type { UserSession } from "./types.js";
 
 export const GOOGLE_CLIENT_ID =
-  "389746131392-6s6f7i2ci1sbm1gqafhqkkpmphefocte.apps.googleusercontent.com";
+  process.env.GOOGLE_CLIENT_ID ||
+  "603017672414-snngu7phn977qp54cnkuohf4heil31j4.apps.googleusercontent.com";
+
+export const ACCEPTED_CLIENT_IDS: Record<string, true> = {
+  [GOOGLE_CLIENT_ID]: true,
+  "603017672414-snngu7phn977qp54cnkuohf4heil31j4.apps.googleusercontent.com": true,
+  "389746131392-6s6f7i2ci1sbm1gqafhqkkpmphefocte.apps.googleusercontent.com": true,
+};
 export const ALLOWED_EMAIL = "lutfidmz@gmail.com";
 export const COOKIE_NAME = "donna_session";
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -81,8 +88,8 @@ export async function verifyGoogleToken(idToken: string): Promise<UserSession | 
     const payload = (await response.json()) as GoogleTokenInfo;
 
     // Check audience
-    if (payload.aud !== GOOGLE_CLIENT_ID) {
-      console.warn(`[Auth] Token audience mismatch: ${payload.aud} !== ${GOOGLE_CLIENT_ID}`);
+    if (!payload.aud || !ACCEPTED_CLIENT_IDS[payload.aud]) {
+      console.warn(`[Auth] Token audience mismatch: ${payload.aud}`);
       return null;
     }
 
