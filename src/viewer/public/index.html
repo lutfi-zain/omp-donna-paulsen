@@ -19,8 +19,8 @@
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <link rel="stylesheet" href="styles.css?v=7">
-  <script src="app.js?v=7" defer></script>
+  <link rel="stylesheet" href="styles.css?v=8">
+  <script src="app.js?v=8" defer></script>
 </head>
 <body>
   <!-- App Container -->
@@ -28,6 +28,11 @@
     <!-- Top Application Bar -->
     <header class="app-header" role="banner">
       <div class="header-left">
+        <button id="btn-toggle-sidebar" class="btn-sidebar-toggle" type="button" title="Sembunyikan / Tampilkan Sidebar (⌘\)" aria-label="Toggle Sidebar">
+          <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 2v8h3V6H5zm5 0v8h5V6h-5z" clip-rule="evenodd"/>
+          </svg>
+        </button>
         <div class="brand">
           <span class="brand-badge" aria-hidden="true">OKF</span>
           <div class="brand-text">
@@ -42,6 +47,17 @@
       </div>
 
       <div class="header-center">
+        <div class="main-view-switcher" role="tablist" aria-label="Mode Tampilan">
+          <button id="btn-view-reader" class="main-view-btn is-active" role="tab" aria-selected="true" type="button">
+            <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="15" height="15" aria-hidden="true"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
+            <span>Dokumen</span>
+          </button>
+          <button id="btn-view-graph" class="main-view-btn" role="tab" aria-selected="false" type="button">
+            <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="15" height="15" aria-hidden="true"><circle cx="5" cy="5" r="3"/><circle cx="15" cy="5" r="3"/><circle cx="10" cy="15" r="3"/><path d="M5 5l5 10m5-10l-5 10"/></svg>
+            <span>Jejaring Graf</span>
+          </button>
+        </div>
+
         <button id="search-trigger-btn" class="search-trigger" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
           <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
             <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
@@ -70,67 +86,123 @@
 
     <!-- Main 2-Column Work Area -->
     <main class="app-main" id="main-content">
-      <!-- Left Column: Sidebar (Explorer / Graph) -->
-      <section class="panel-sidebar" id="view-sidebar" aria-label="Navigasi Vault & Visualisasi">
+      <!-- Left Column: Collapsible Vault Folder Explorer Sidebar -->
+      <aside class="panel-sidebar" id="view-sidebar" aria-label="Pohon Berkas Vault">
         <div class="sidebar-header">
-          <div class="view-switcher" role="tablist" aria-label="Pilihan Navigasi">
-            <button id="btn-switch-explorer" class="view-switch-btn is-active" role="tab" aria-selected="true" type="button">
-              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
-              <span>Explorer</span>
+          <div class="sidebar-title-wrapper">
+            <svg class="icon sidebar-title-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+            </svg>
+            <span class="sidebar-title">Berkas Vault</span>
+          </div>
+          <div class="explorer-actions">
+            <button id="btn-collapse-all" class="btn-tree-action" type="button" title="Tutup Semua Folder" aria-label="Tutup Semua Folder">
+              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
             </button>
-            <button id="btn-switch-graph" class="view-switch-btn" role="tab" aria-selected="false" type="button">
-              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true"><circle cx="5" cy="5" r="3"/><circle cx="15" cy="5" r="3"/><circle cx="10" cy="15" r="3"/><path d="M5 5l5 10m5-10l-5 10"/></svg>
-              <span>Graph</span>
+            <button id="btn-expand-all" class="btn-tree-action" type="button" title="Buka Semua Folder" aria-label="Buka Semua Folder">
+              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
             </button>
           </div>
         </div>
 
-        <!-- Explorer View Container -->
-        <div id="container-explorer" class="sidebar-view-explorer">
-          <div class="explorer-toolbar">
-            <div class="explorer-search-wrapper">
-              <svg class="icon explorer-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+        <!-- Explorer Search & Tree -->
+        <div class="explorer-toolbar">
+          <div class="explorer-search-wrapper">
+            <svg class="icon explorer-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+            </svg>
+            <input type="search" id="explorer-filter-input" class="explorer-filter" placeholder="Filter berkas..." aria-label="Filter berkas vault" />
+          </div>
+        </div>
+        <div id="vault-tree-root" class="vault-tree-root" role="tree" aria-label="Pohon Berkas Vault"></div>
+      </aside>
+
+      <!-- Right Column: Main Stage (Reader OR Full-Size Graph) -->
+      <div class="main-stage" id="main-stage">
+        <!-- 1. Concept Document Reader -->
+        <section class="panel-reader" id="view-reader" aria-label="Pembaca Dokumen OKF">
+          <!-- Empty Placeholder State -->
+          <div id="reader-empty" class="reader-empty">
+            <div class="empty-card">
+              <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
               </svg>
-              <input type="search" id="explorer-filter-input" class="explorer-filter" placeholder="Filter berkas..." aria-label="Filter berkas vault" />
-            </div>
-            <div class="explorer-actions">
-              <button id="btn-collapse-all" class="btn-tree-action" type="button" title="Tutup Semua Folder" aria-label="Tutup Semua Folder">
-                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
-              </button>
-              <button id="btn-expand-all" class="btn-tree-action" type="button" title="Buka Semua Folder" aria-label="Buka Semua Folder">
-                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+              <h2 class="empty-title">Pilih Konsep untuk Membaca</h2>
+              <p class="empty-desc">Pilih berkas dari Explorer di sebelah kiri atau tekan <kbd>⌘K</kbd> untuk mencari konsep dalam Second Brain Donna.</p>
+              <button id="empty-search-btn" class="btn-primary" type="button">
+                Cari di Second Brain (⌘K)
               </button>
             </div>
           </div>
-          <div id="vault-tree-root" class="vault-tree-root" role="tree" aria-label="Pohon Berkas Vault"></div>
-        </div>
 
-        <!-- Graph View Container -->
-        <div id="container-graph" class="sidebar-view-graph" hidden>
-          <div class="panel-toolbar">
-            <div class="toolbar-group">
-              <label for="graph-layout-select" class="sr-only">Tata Letak Graf</label>
-              <select id="graph-layout-select" class="form-select" aria-label="Pilih Tata Letak Graf">
+          <!-- Reader Active Document Container -->
+          <article id="reader-content" class="reader-article" hidden>
+            <header class="concept-header">
+              <div class="concept-meta-top">
+                <span id="concept-type-badge" class="type-badge">Konsep</span>
+                <span id="concept-trust-badge" class="trust-badge" title="Tingkat Verifikasi OKF"></span>
+                <span id="concept-staleness-badge" class="staleness-badge" hidden></span>
+                <span id="concept-id-badge" class="id-badge"></span>
+              </div>
+
+              <h1 id="concept-title" class="concept-title"></h1>
+              <p id="concept-description" class="concept-description" hidden></p>
+
+              <div class="concept-action-bar">
+                <button id="btn-read-aloud" class="btn-read-aloud" type="button" aria-label="Dengarkan konsep dengan suara alami">
+                  <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" />
+                  </svg>
+                  <span>Baca Nyaring (Edge-TTS)</span>
+                </button>
+
+                <div id="concept-tags-list" class="concept-tags-list" aria-label="Tag Konsep"></div>
+              </div>
+            </header>
+
+            <!-- Rendered Markdown Body -->
+            <div id="markdown-body" class="markdown-body" role="region" aria-label="Isi Dokumen"></div>
+
+            <!-- Document Relationships & Backlinks -->
+            <footer class="concept-relations">
+              <div class="relations-block">
+                <h3 class="relations-title">Tautan Keluar (Outgoing Links)</h3>
+                <div id="outgoing-links-list" class="links-grid" role="list"></div>
+              </div>
+
+              <div class="relations-block">
+                <h3 class="relations-title">Tautan Masuk (Backlinks)</h3>
+                <div id="backlinks-list" class="links-grid" role="list"></div>
+              </div>
+            </footer>
+          </article>
+        </section>
+
+        <!-- 2. Full-Size Spacious Knowledge Graph Canvas -->
+        <section class="panel-graph" id="view-graph" aria-label="Visualisasi Graf OKF" hidden>
+          <div class="graph-topbar">
+            <div class="graph-controls-left">
+              <label for="graph-layout-select" class="graph-control-label">Layout:</label>
+              <select id="graph-layout-select" class="form-select-sm" aria-label="Pilih Tata Letak Graf">
                 <option value="cose">Force-Directed (Cose)</option>
                 <option value="concentric">Konsentris (Derajat)</option>
                 <option value="circle">Lingkaran</option>
-                <option value="breadthfirst">Hirarkis (Breadthfirst)</option>
+                <option value="breadthfirst">Hirarkis (Tree)</option>
                 <option value="grid">Kisi (Grid)</option>
               </select>
 
-              <label for="graph-filter-select" class="sr-only">Filter Tipe Konsep</label>
-              <select id="graph-filter-select" class="form-select" aria-label="Filter Tipe Konsep">
+              <label for="graph-filter-select" class="graph-control-label">Filter:</label>
+              <select id="graph-filter-select" class="form-select-sm" aria-label="Filter Tipe Konsep">
                 <option value="all">Semua Tipe</option>
               </select>
             </div>
 
-            <div class="toolbar-group">
+            <div class="graph-controls-right">
               <button id="btn-fit-graph" class="btn-tool" type="button" title="Paskan Graf ke Layar" aria-label="Paskan Graf ke Layar">
                 <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
                   <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H5v3a1 1 0 01-2 0V4zm14 0a1 1 0 00-1-1h-4a1 1 0 100 2h3v3a1 1 0 102 0V4zM3 16a1 1 0 001 1h4a1 1 0 100-2H5v-3a1 1 0 10-2 0v4zm14 0a1 1 0 01-1 1h-4a1 1 0 110-2h3v-3a1 1 0 112 0v4z"/>
                 </svg>
-                <span>Fit</span>
+                <span>Paskan</span>
               </button>
               <button id="btn-zoom-in" class="btn-tool" type="button" title="Perbesar" aria-label="Perbesar">
                 <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
@@ -145,72 +217,21 @@
             </div>
           </div>
 
-          <!-- Cytoscape Canvas Container -->
+          <!-- Cytoscape Canvas Container (Spacious 100% width & height) -->
           <div id="cy" class="cy-container" role="region" aria-label="Graf Interaktif Cytoscape"></div>
 
-          <!-- Graph Legend -->
-          <div class="graph-legend" id="graph-legend" aria-label="Legenda Tipe Konsep"></div>
-        </div>
-      </section>
-
-      <!-- Right Column: Concept Reader -->
-      <section class="panel-reader" id="view-reader" aria-label="Pembaca Dokumen OKF">
-        <!-- Empty Placeholder State -->
-        <div id="reader-empty" class="reader-empty">
-          <div class="empty-card">
-            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-            </svg>
-            <h2 class="empty-title">Pilih Konsep untuk Membaca</h2>
-            <p class="empty-desc">Klik simpul pada graf di sebelah kiri atau tekan <kbd>⌘K</kbd> untuk mencari konsep, persona, keputusan, atau pengetahuan dalam Second Brain Donna.</p>
-            <button id="empty-search-btn" class="btn-primary" type="button">
-              Cari di Second Brain (⌘K)
-            </button>
+          <!-- Bottom floating legend & selected node info preview -->
+          <div class="graph-footer">
+            <div class="graph-legend" id="graph-legend" aria-label="Legenda Tipe Konsep"></div>
+            <div id="graph-node-preview" class="graph-node-preview" hidden>
+              <span id="preview-type-badge" class="type-badge"></span>
+              <span id="preview-title" class="preview-title"></span>
+              <button id="btn-preview-open" class="btn-preview-open" type="button">Buka Dokumen →</button>
+            </div>
           </div>
-        </div>
+        </section>
+      </div>
 
-        <!-- Reader Active Document Container -->
-        <article id="reader-content" class="reader-article" hidden>
-          <header class="concept-header">
-            <div class="concept-meta-top">
-              <span id="concept-type-badge" class="type-badge">Konsep</span>
-              <span id="concept-trust-badge" class="trust-badge" title="Tingkat Verifikasi OKF"></span>
-              <span id="concept-staleness-badge" class="staleness-badge" hidden></span>
-              <span id="concept-id-badge" class="id-badge"></span>
-            </div>
-
-            <h1 id="concept-title" class="concept-title"></h1>
-            <p id="concept-description" class="concept-description" hidden></p>
-
-            <div class="concept-action-bar">
-              <button id="btn-read-aloud" class="btn-read-aloud" type="button" aria-label="Dengarkan konsep dengan suara alami">
-                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" />
-                </svg>
-                <span>Baca Nyaring (Edge-TTS)</span>
-              </button>
-
-              <div id="concept-tags-list" class="concept-tags-list" aria-label="Tag Konsep"></div>
-            </div>
-          </header>
-
-          <!-- Rendered Markdown Body -->
-          <div id="markdown-body" class="markdown-body" role="region" aria-label="Isi Dokumen"></div>
-
-          <!-- Document Relationships & Backlinks -->
-          <footer class="concept-relations">
-            <div class="relations-block">
-              <h3 class="relations-title">Tautan Keluar (Outgoing Links)</h3>
-              <div id="outgoing-links-list" class="links-grid" role="list"></div>
-            </div>
-
-            <div class="relations-block">
-              <h3 class="relations-title">Tautan Masuk (Backlinks)</h3>
-              <div id="backlinks-list" class="links-grid" role="list"></div>
-            </div>
-          </footer>
-        </article>
-      </section>
     </main>
 
     <!-- Mobile Navigation Bottom Tabs (≤768px) -->

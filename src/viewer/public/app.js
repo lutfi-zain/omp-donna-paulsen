@@ -38,6 +38,9 @@
     activeFilterType: 'all',
     activeLayout: 'cose',
     activeTab: 'explorer',
+    mainViewMode: 'reader',
+    sidebarCollapsed: localStorage.getItem('donna_sidebar_collapsed') === 'true',
+    pendingGraphRender: false,
     tts: {
       active: false,
       conceptId: null,
@@ -82,17 +85,14 @@
     logoutBtn: document.getElementById('logout-btn'),
     syncStatus: document.getElementById('sync-status'),
 
-    // Main views & Sidebar
-    viewSidebar: document.getElementById('view-sidebar') || document.getElementById('view-graph'),
-    viewGraph: document.getElementById('view-graph') || document.getElementById('view-sidebar'),
+    appRoot: document.querySelector('.app-root'),
+    btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
+    btnViewReader: document.getElementById('btn-view-reader'),
+    btnViewGraph: document.getElementById('btn-view-graph'),
+    mainStage: document.getElementById('main-stage'),
+    viewSidebar: document.getElementById('view-sidebar'),
+    viewGraph: document.getElementById('view-graph'),
     viewReader: document.getElementById('view-reader'),
-
-    // View Switcher & Containers
-    btnSwitchExplorer: document.getElementById('btn-switch-explorer'),
-    btnSwitchGraph: document.getElementById('btn-switch-graph'),
-    containerExplorer: document.getElementById('container-explorer'),
-    containerGraph: document.getElementById('container-graph'),
-
     // Explorer Tree Elements
     explorerFilterInput: document.getElementById('explorer-filter-input'),
     btnCollapseAll: document.getElementById('btn-collapse-all'),
@@ -106,6 +106,10 @@
     btnZoomOut: document.getElementById('btn-zoom-out'),
     cyContainer: document.getElementById('cy'),
     graphLegend: document.getElementById('graph-legend'),
+    graphNodePreview: document.getElementById('graph-node-preview'),
+    previewTypeBadge: document.getElementById('preview-type-badge'),
+    previewTitle: document.getElementById('preview-title'),
+    btnPreviewOpen: document.getElementById('btn-preview-open'),
 
     // Reader elements
     readerEmpty: document.getElementById('reader-empty'),
@@ -497,46 +501,85 @@
   /**
    * Switch view mode between Explorer and Graph
    */
-  function switchViewMode(mode) {
-    state.activeViewMode = mode;
+  /**
+   * Toggle sidebar collapse state
+   */
+  function toggleSidebar() {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    if (el.appRoot) {
+      el.appRoot.classList.toggle('sidebar-collapsed', state.sidebarCollapsed);
+    }
+    try {
+      localStorage.setItem('donna_sidebar_collapsed', state.sidebarCollapsed ? 'true' : 'false');
+    } catch (_) {}
 
-    if (mode === 'explorer') {
-      if (el.btnSwitchExplorer) {
-        el.btnSwitchExplorer.classList.add('is-active');
-        el.btnSwitchExplorer.setAttribute('aria-selected', 'true');
-      }
-      if (el.btnSwitchGraph) {
-        el.btnSwitchGraph.classList.remove('is-active');
-        el.btnSwitchGraph.setAttribute('aria-selected', 'false');
-      }
-      if (el.containerExplorer) el.containerExplorer.hidden = false;
-      if (el.containerGraph) el.containerGraph.hidden = true;
+    // When graph is visible, resize and fit
+    if (state.mainViewMode === 'graph' && state.cy) {
+      setTimeout(() => {
+        state.cy.resize();
+        state.cy.fit(undefined, 30);
+      }, 280);
+    }
+  }
 
-      // Scroll active item into view if selected
-      if (state.activeConceptId) {
-        syncExplorerActiveConcept(state.activeConceptId);
+  /**
+   * Switch main view mode between Reader and Full-Size Graph
+   */
+  function switchMainView(mode) {
+    state.mainViewMode = mode;
+
+    if (mode === 'reader') {
+      if (el.btnViewReader) {
+        el.btnViewReader.classList.add('is-active');
+        el.btnViewReader.setAttribute('aria-selected', 'true');
+      }
+      if (el.btnViewGraph) {
+        el.btnViewGraph.classList.remove('is-active');
+        el.btnViewGraph.setAttribute('aria-selected', 'false');
+      }
+
+      if (el.viewReader) {
+        el.viewReader.hidden = false;
+        el.viewReader.classList.remove('is-hidden');
+      }
+      if (el.viewGraph) {
+        el.viewGraph.hidden = true;
+        el.viewGraph.classList.add('is-hidden');
       }
     } else if (mode === 'graph') {
-      if (el.btnSwitchGraph) {
-        el.btnSwitchGraph.classList.add('is-active');
-        el.btnSwitchGraph.setAttribute('aria-selected', 'true');
+      if (el.btnViewGraph) {
+        el.btnViewGraph.classList.add('is-active');
+        el.btnViewGraph.setAttribute('aria-selected', 'true');
       }
-      if (el.btnSwitchExplorer) {
-        el.btnSwitchExplorer.classList.remove('is-active');
-        el.btnSwitchExplorer.setAttribute('aria-selected', 'false');
+      if (el.btnViewReader) {
+        el.btnViewReader.classList.remove('is-active');
+        el.btnViewReader.setAttribute('aria-selected', 'false');
       }
-      if (el.containerGraph) el.containerGraph.hidden = false;
-      if (el.containerExplorer) el.containerExplorer.hidden = true;
 
-      // Cytoscape resize and fit
-      if (state.cy) {
-        state.cy.resize();
-        if (state.activeConceptId) {
-          focusNodeInGraph(state.activeConceptId);
-        } else {
-          state.cy.fit();
-        }
+      if (el.viewGraph) {
+        el.viewGraph.hidden = false;
+        el.viewGraph.classList.remove('is-hidden');
       }
+      if (el.viewReader) {
+        el.viewReader.hidden = true;
+        el.viewReader.classList.add('is-hidden');
+      }
+
+      // Initialize or layout Cytoscape in spacious canvas!
+      setTimeout(() => {
+        if (!state.cy && state.graphData) {
+          renderCytoscapeGraph(state.graphData);
+        } else if (state.cy) {
+          state.cy.resize();
+          const layout = state.cy.layout(getLayoutConfig(state.activeLayout));
+          layout.run();
+          if (state.activeConceptId) {
+            focusNodeInGraph(state.activeConceptId);
+          } else {
+            state.cy.fit(undefined, 40);
+          }
+        }
+      }, 60);
     }
   }
 
@@ -803,8 +846,13 @@
   }
 
   function renderCytoscapeGraph(graph) {
+    state.graphData = graph;
+    if (!el.cyContainer || el.cyContainer.offsetWidth === 0) {
+      state.pendingGraphRender = true;
+      return;
+    }
+    state.pendingGraphRender = false;
     const elements = [];
-
     // Map Nodes
     graph.nodes.forEach(node => {
       const bodyLen = (node.body || '').length;
@@ -924,18 +972,44 @@
     state.cy.on('tap', 'node', (evt) => {
       const node = evt.target;
       const conceptId = node.id();
+      const concept = node.data('rawConcept');
       highlightNeighborhood(node);
-      selectConcept(conceptId);
+
+      // Show floating preview card in graph footer
+      if (el.graphNodePreview && concept) {
+        el.graphNodePreview.hidden = false;
+        el.previewTitle.textContent = concept.title;
+        el.previewTypeBadge.textContent = concept.type;
+        el.previewTypeBadge.style.color = getTypeColor(concept.type);
+        el.previewTypeBadge.style.borderColor = getTypeColor(concept.type);
+        el.btnPreviewOpen.onclick = () => {
+          switchMainView('reader');
+          selectConcept(conceptId);
+        };
+      }
+
+      // Sync in Explorer
+      syncExplorerActiveConcept(conceptId);
 
       // On mobile viewports, automatically switch tab to Reader
       if (window.innerWidth <= 1023) {
         switchMobileTab('reader');
+        selectConcept(conceptId);
       }
+    });
+
+    state.cy.on('dbltap', 'node', (evt) => {
+      const conceptId = evt.target.id();
+      switchMainView('reader');
+      selectConcept(conceptId);
     });
 
     state.cy.on('tap', (evt) => {
       if (evt.target === state.cy) {
         resetGraphHighlights();
+        if (el.graphNodePreview) {
+          el.graphNodePreview.hidden = true;
+        }
       }
     });
   }
@@ -1639,18 +1713,17 @@
       el.tabReader.setAttribute('aria-selected', tab === 'reader' ? 'true' : 'false');
     }
 
-    const sidebar = el.viewSidebar || el.viewGraph;
     if (tab === 'explorer') {
-      if (sidebar) sidebar.classList.remove('is-hidden');
-      if (el.viewReader) el.viewReader.classList.add('is-hidden');
-      switchViewMode('explorer');
+      if (el.viewSidebar) el.viewSidebar.classList.remove('is-hidden');
+      if (el.mainStage) el.mainStage.classList.add('is-hidden');
     } else if (tab === 'graph') {
-      if (sidebar) sidebar.classList.remove('is-hidden');
-      if (el.viewReader) el.viewReader.classList.add('is-hidden');
-      switchViewMode('graph');
+      if (el.viewSidebar) el.viewSidebar.classList.add('is-hidden');
+      if (el.mainStage) el.mainStage.classList.remove('is-hidden');
+      switchMainView('graph');
     } else if (tab === 'reader') {
-      if (sidebar) sidebar.classList.add('is-hidden');
-      if (el.viewReader) el.viewReader.classList.remove('is-hidden');
+      if (el.viewSidebar) el.viewSidebar.classList.add('is-hidden');
+      if (el.mainStage) el.mainStage.classList.remove('is-hidden');
+      switchMainView('reader');
     }
   }
 
@@ -1696,13 +1769,26 @@
         }
       }
     });
-    // View Switcher (Explorer vs Graph)
-    if (el.btnSwitchExplorer) {
-      el.btnSwitchExplorer.addEventListener('click', () => switchViewMode('explorer'));
+    // Sidebar toggle button
+    if (el.btnToggleSidebar) {
+      el.btnToggleSidebar.addEventListener('click', toggleSidebar);
     }
-    if (el.btnSwitchGraph) {
-      el.btnSwitchGraph.addEventListener('click', () => switchViewMode('graph'));
+
+    // Main view mode toggle (Dokumen vs Jejaring Graf)
+    if (el.btnViewReader) {
+      el.btnViewReader.addEventListener('click', () => switchMainView('reader'));
     }
+    if (el.btnViewGraph) {
+      el.btnViewGraph.addEventListener('click', () => switchMainView('graph'));
+    }
+
+    // Global keyboard shortcut: Cmd+\ or Ctrl+\ to toggle sidebar
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    });
 
     // Tree Collapse/Expand All Buttons
     if (el.btnCollapseAll) {
@@ -1908,6 +1994,9 @@
 
   // ==========================================================================
   async function initApp() {
+    if (state.sidebarCollapsed && el.appRoot) {
+      el.appRoot.classList.add('sidebar-collapsed');
+    }
     wireEventListeners();
     loadTTSVoices();
     await loadVaultGraph();

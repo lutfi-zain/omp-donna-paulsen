@@ -323,40 +323,139 @@ select:focus:not(:focus-visible) {
    ========================================================================== */
 .app-main {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(340px, 380px) 1fr;
+  display: flex;
   height: calc(100vh - var(--header-height));
   overflow: hidden;
   position: relative;
 }
 
-/* Left Pane: Sidebar (Explorer / Graph) */
-.panel-sidebar,
-.panel-graph {
+/* Left Pane: Collapsible Sidebar (Vault Explorer) */
+.panel-sidebar {
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  flex-shrink: 0;
+  height: 100%;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
-  height: 100%;
   overflow: hidden;
   position: relative;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, transform 0.25s ease;
 }
 
-/* Sidebar Top Header & Segmented View Switcher */
-.sidebar-header {
-  padding: 10px 14px;
-  background-color: var(--bg-surface);
-  border-bottom: 1px solid var(--border-default);
+.app-root.sidebar-collapsed .panel-sidebar {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  border-right: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-10px);
+}
+
+/* Right Pane: Main Stage (Reader OR Full-Size Graph) */
+.main-stage {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--bg-canvas);
+  min-width: 0;
+}
+
+/* Sidebar Toggle Button */
+.btn-sidebar-toggle {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-right: 6px;
   flex-shrink: 0;
 }
 
-.view-switcher {
-  background-color: #101720;
+.btn-sidebar-toggle:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* Main View Switcher (Dokumen vs Jejaring Graf) */
+.main-view-switcher {
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  padding: 3px;
+  padding: 2px;
   display: flex;
-  gap: 4px;
+  gap: 3px;
+  margin-right: 12px;
+}
+
+.main-view-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.825rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.main-view-btn:hover {
+  color: var(--text-primary);
+}
+
+.main-view-btn.is-active,
+.main-view-btn[aria-selected="true"] {
+  background-color: var(--bg-card);
+  color: #ffffff;
+  font-weight: 600;
+  border-color: var(--border-default);
+}
+
+/* Sidebar Header */
+.sidebar-header {
+  padding: 12px 14px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sidebar-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.sidebar-title-icon {
+  color: var(--accent-primary);
+}
+
+.sidebar-title {
+  letter-spacing: -0.01em;
 }
 
 .view-switch-btn {
@@ -617,33 +716,48 @@ select:focus:not(:focus-visible) {
 }
 
 /* Sidebar View: Graph */
-.sidebar-view-graph {
+/* Main Stage: Full-Size Spacious Graph */
+.panel-graph {
   flex: 1;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
   position: relative;
+  background-color: var(--bg-canvas);
+  overflow: hidden;
 }
 
-.sidebar-view-graph[hidden] {
+.panel-graph[hidden] {
   display: none !important;
 }
 
-.panel-toolbar {
-  min-height: 52px;
-  padding: 0 14px;
+.graph-topbar {
+  min-height: 48px;
+  height: 48px;
+  padding: 0 16px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   flex-shrink: 0;
   z-index: 10;
 }
 
+.graph-controls-left,
+.graph-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-control-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
 .toolbar-group {
   display: flex;
   align-items: center;
@@ -695,23 +809,71 @@ select:focus:not(:focus-visible) {
   position: relative;
 }
 
-.graph-legend {
+.graph-footer {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
-  right: 12px;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  gap: 12px;
+  z-index: 5;
+}
+
+.graph-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding: 8px 12px;
-  background-color: rgba(13, 18, 24, 0.9);
+  background-color: rgba(13, 18, 24, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
-  z-index: 5;
-  pointer-events: none;
+  pointer-events: auto;
+  max-width: 60%;
+}
+
+.graph-node-preview {
+  pointer-events: auto;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.preview-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.btn-preview-open {
+  height: 28px;
+  padding: 0 10px;
+  background-color: var(--accent-primary);
+  color: #080b0f;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.775rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+.btn-preview-open:hover {
+  opacity: 0.9;
 }
 
 .legend-item {
@@ -1714,21 +1876,33 @@ select:focus:not(:focus-visible) {
    Responsive Breakpoints
    ========================================================================== */
 @media (max-width: 1023px) {
+  .btn-sidebar-toggle {
+    display: none;
+  }
+
+  .main-view-switcher {
+    display: none;
+  }
+
   .app-main {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     height: calc(100vh - var(--header-height) - var(--tabbar-height));
   }
 
-  /* Single-panel switching on smaller screens */
-  .panel-sidebar,
-  .panel-graph,
-  .panel-reader {
-    height: 100%;
-    width: 100%;
+  .panel-sidebar {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
     border-right: none;
   }
 
+  .main-stage {
+    width: 100%;
+    height: 100%;
+  }
+
   .panel-sidebar.is-hidden,
+  .main-stage.is-hidden,
   .panel-graph.is-hidden,
   .panel-reader.is-hidden {
     display: none !important;
