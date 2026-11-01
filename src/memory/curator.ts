@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { DonnaConfig } from "../types.js";
 import type { OKFScanner } from "../okf/scanner.js";
+import { toValidSlug } from "../utils.js";
 
 export interface CuratorResult {
   has_notable_items: boolean;
@@ -251,9 +252,5 @@ If this was routine coding, chit-chat, simple question answering, or debugging w
 }
 
 function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
+  return toValidSlug(text, "item").slice(0, 50);
 }

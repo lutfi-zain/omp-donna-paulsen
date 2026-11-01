@@ -1,12 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { toValidSlug } from "./utils.js";
 
 export function initializeDonnaVault(targetDir: string, principalName: string): { success: boolean; message: string } {
   const bundlePath = path.join(targetDir, ".okf");
-  const principalSlug = principalName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  const principalSlug = toValidSlug(principalName, "principal");
 
   const nowIso = new Date().toISOString();
 

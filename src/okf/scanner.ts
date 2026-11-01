@@ -6,6 +6,7 @@ export class OKFScanner {
   private bundlePath: string;
   private cache: Map<string, OKFConcept> = new Map();
   private lastScanTime: number = 0;
+  private titleWordFrequency: Map<string, number> = new Map();
 
   constructor(bundlePath: string) {
     this.bundlePath = bundlePath;
@@ -53,7 +54,23 @@ export class OKFScanner {
       this.scanDirectoryRecursively(fullDir);
     }
 
+    this.computeTitleWordFrequencies();
     this.lastScanTime = Date.now();
+  }
+
+  private computeTitleWordFrequencies(): void {
+    this.titleWordFrequency.clear();
+    for (const concept of this.cache.values()) {
+      const words = new Set(
+        concept.title
+          .toLowerCase()
+          .split(/[^\p{L}\p{N}]+/gu)
+          .filter((w) => w.length >= 2)
+      );
+      for (const w of words) {
+        this.titleWordFrequency.set(w, (this.titleWordFrequency.get(w) || 0) + 1);
+      }
+    }
   }
 
   private scanDirectoryRecursively(dirPath: string): void {
@@ -257,12 +274,9 @@ export class OKFScanner {
       const slugLower = concept.slug.toLowerCase();
       const normTitle = titleLower.replace(/th/g, "t").replace(/[-\s]/g, "");
       const normSlug = slugLower.replace(/th/g, "t").replace(/[-\s]/g, "");
-
-      // For people: extract name parts for proper noun matching
       const isPerson = topDir === "people" || topDir === "persona";
-      const nameParts = isPerson
-        ? titleLower.split(/[\s\-]+/).filter((w) => w.length >= 3)
-        : [];
+      const titleWords = titleLower.split(/[^\p{L}\p{N}]+/gu).filter((w) => w.length >= 2);
+      const nWords = titleWords.length;
 
       let bestScore = 0;
 
@@ -270,29 +284,35 @@ export class OKFScanner {
         const normToken = token.replace(/th/g, "t").replace(/[-\s]/g, "");
         const isPhrase = token.includes(" ");
 
-        // Rule 1: Exact slug or title match (+3)
+        // Rule 1: Exact slug or title match (+10)
         if (
           titleLower === token ||
           slugLower === token ||
           normTitle === normToken ||
           normSlug === normToken
         ) {
-          bestScore = Math.max(bestScore, 3);
+          bestScore = Math.max(bestScore, 10);
           continue;
         }
 
-        // Rule 2: Person name part match (+2)
-        // Only for people/persona — matches first name, last name, nickname
-        if (isPerson && nameParts.includes(token) && token.length >= 3) {
-          bestScore = Math.max(bestScore, 2);
+        // Rule 2: Multi-word phrase (bigram) found in title (+5)
+        if (isPhrase && (titleLower.includes(token) || normTitle.includes(normToken))) {
+          bestScore = Math.max(bestScore, 5);
           continue;
         }
 
-        // Rule 3: Bigram phrase found in title (+1)
-        // Only multi-word tokens to prevent single-word false positives
-        if (isPhrase && titleLower.includes(token)) {
-          bestScore = Math.max(bestScore, 1);
-          continue;
+        // Rule 3: Distinctive proper name for short entities (<= 3 words) (+3)
+        // Language-Agnostic: evaluated against dynamic corpus document frequency (IDF).
+        // Any word appearing across > 2 concepts (e.g. "pak", "dan", "for", "the", "system")
+        // is automatically treated as generic in this vault, without any hardcoded dictionary.
+        if (isPerson && nWords <= 3 && !isPhrase) {
+          if (titleWords.includes(token)) {
+            const freq = this.titleWordFrequency.get(token) || 0;
+            if (freq <= 2) {
+              bestScore = Math.max(bestScore, 3);
+              continue;
+            }
+          }
         }
       }
 

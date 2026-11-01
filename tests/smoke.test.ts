@@ -1,3 +1,5 @@
+import os from "node:os";
+import path from "node:path";
 import { resolveDonnaConfig } from "../src/config.js";
 import { OKFScanner } from "../src/okf/scanner.js";
 import { buildIngressContext, extractCandidatePhrases } from "../src/context/ingress.js";
@@ -5,8 +7,8 @@ import { buildIngressContext, extractCandidatePhrases } from "../src/context/ing
 async function runSmokeTest() {
   console.log("=== SMOKE TEST: DONNA CONTEXT ENGINE ===");
 
-  const cwd = process.cwd();
-  const config = resolveDonnaConfig(cwd);
+  const testDir = process.env.DONNA_TEST_DIR || path.join(os.homedir(), ".donna");
+  const config = resolveDonnaConfig(testDir);
 
   console.log(`1. Bundle Path: ${config.bundlePath}`);
   console.log(`2. Principal Detected: ${config.principalName}`);

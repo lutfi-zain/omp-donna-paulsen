@@ -1,5 +1,7 @@
 import type { DonnaConfig, IngressContextResult, OKFConcept } from "../types.js";
 import type { OKFScanner } from "../okf/scanner.js";
+import { escapeXml } from "../utils.js";
+export { escapeXml };
 
 /**
  * Ingress Context Engine:
@@ -40,14 +42,14 @@ export function buildIngressContext(
 
   // 3. Assemble high-density XML context payload
   const lines: string[] = ["<donna-context>"];
-  lines.push(`  <meta bundle="${scanner.getBundlePath()}" principal="${config.principalName}" />`);
+  lines.push(`  <meta bundle="${escapeXml(scanner.getBundlePath())}" principal="${escapeXml(config.principalName)}" />`);
 
   if (matchedConcepts.length > 0) {
     lines.push("  <entities>");
     for (const concept of matchedConcepts) {
-      const relAttr = concept.relationship ? ` relationship="${concept.relationship}"` : "";
-      const statusAttr = concept.status ? ` status="${concept.status}"` : "";
-      lines.push(`    <concept type="${concept.type}" slug="${concept.slug}" title="${concept.title}"${relAttr}${statusAttr}>`);
+      const relAttr = concept.relationship ? ` relationship="${escapeXml(concept.relationship)}"` : "";
+      const statusAttr = concept.status ? ` status="${escapeXml(concept.status)}"` : "";
+      lines.push(`    <concept type="${escapeXml(concept.type)}" slug="${escapeXml(concept.slug)}" title="${escapeXml(concept.title)}"${relAttr}${statusAttr}>`);
       if (concept.description) {
         lines.push(`      <description>${escapeXml(concept.description)}</description>`);
       }
@@ -62,8 +64,8 @@ export function buildIngressContext(
   if (activeCommitments.length > 0) {
     lines.push(`  <active-commitments count="${activeCommitments.length}">`);
     for (const comm of activeCommitments) {
-      const dueAttr = comm.dueDate ? ` due="${comm.dueDate}"` : "";
-      lines.push(`    <commitment slug="${comm.slug}" title="${comm.title}"${dueAttr}>`);
+      const dueAttr = comm.dueDate ? ` due="${escapeXml(comm.dueDate)}"` : "";
+      lines.push(`    <commitment slug="${escapeXml(comm.slug)}" title="${escapeXml(comm.title)}"${dueAttr}>`);
       lines.push(`      ${escapeXml(comm.contentSummary || comm.description || "")}`);
       lines.push("    </commitment>");
     }
@@ -82,33 +84,9 @@ export function buildIngressContext(
 }
 
 /**
- * Tokenize prompt into candidate search phrases.
- * Filters common Indonesian/English function words that cause false entity matches.
+ * Tokenize prompt into candidate search phrases (clean words and 2-grams).
+ * 100% language-agnostic: relies on Unicode word boundaries with zero hardcoded stopwords.
  */
-const STOPWORDS = new Set([
-  // Indonesian function words (4+ chars that collide with titles)
-  "yang", "dari", "untuk", "dengan", "pada", "akan", "bisa", "sudah",
-  "juga", "atau", "saya", "kamu", "kita", "mereka", "hanya", "lebih",
-  "tapi", "kalau", "karena", "masih", "belum", "lagi", "biar", "agar",
-  "coba", "mana", "sini", "situ", "gimana", "kenapa", "tolong",
-  "dulu", "dong", "gitu", "banget", "sangat", "beberapa", "semua",
-  "setiap", "antara", "tentang", "dalam", "tanpa", "selama", "setelah",
-  "sebelum", "sampai", "seperti", "bahwa", "ketika", "maka", "yaitu",
-  // English function words (4+ chars that collide)
-  "this", "that", "with", "from", "have", "been", "will", "would",
-  "could", "should", "about", "some", "what", "when", "where", "which",
-  "their", "there", "these", "those", "them", "they", "your", "into",
-  "also", "just", "than", "then", "very", "here", "only", "over",
-  "such", "after", "before", "other", "most", "many", "each", "make",
-  "like", "even", "more", "much", "does", "done", "well", "back",
-  "read", "look", "find", "open", "check", "need", "want", "know",
-  // Technical common words that pollute matches
-  "file", "code", "data", "tool", "test", "type", "list", "send",
-  "system", "agent", "model", "server", "architecture", "plugin",
-  "config", "setup", "install", "update", "build", "deploy",
-  "session", "context", "inject", "memory", "prompt", "token",
-]);
-
 export function extractCandidatePhrases(text: string): string[] {
   const normalized = text
     .toLowerCase()
@@ -119,22 +97,13 @@ export function extractCandidatePhrases(text: string): string[] {
   if (!normalized) return [];
 
   const rawWords = normalized.split(" ").filter((w) => w.length >= 2);
-  const meaningful = rawWords.filter((w) => !STOPWORDS.has(w));
-  const phrases: string[] = [...meaningful];
+  const phrases: string[] = [...rawWords];
 
-  // Bigrams from meaningful words only
-  for (let i = 0; i < meaningful.length - 1; i++) {
-    phrases.push(`${meaningful[i]} ${meaningful[i + 1]}`);
+  // Also include 2-word combinations for compound entities (e.g. "tech lead", "eko kurniawan")
+  for (let i = 0; i < rawWords.length - 1; i++) {
+    phrases.push(`${rawWords[i]} ${rawWords[i + 1]}`);
   }
 
   return phrases;
 }
 
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}

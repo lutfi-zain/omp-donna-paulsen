@@ -99,7 +99,7 @@ tags:
   - journal
 date: '${dateStr}'
 generated:
-  by: donna-engine
+  by: process:donna-paulsen
   at: '${now.toISOString()}'
 ---
 
@@ -113,7 +113,7 @@ ${logEntry}
     } else {
       const existing = fs.readFileSync(journalFile, "utf-8");
       if (existing.includes("# Aktivitas")) {
-        const updated = existing.replace("# Aktivitas\n", `# Aktivitas\n\n${logEntry}`);
+        const updated = existing.replace("# Aktivitas\n", () => `# Aktivitas\n\n${logEntry}`);
         fs.writeFileSync(journalFile, updated, "utf-8");
       } else {
         fs.appendFileSync(journalFile, `\n# Aktivitas\n\n${logEntry}`, "utf-8");

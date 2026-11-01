@@ -5,6 +5,7 @@ import type { DonnaConfig } from "../types.js";
 import type { OKFScanner } from "../okf/scanner.js";
 import { recallFromHindsight } from "../memory/hindsight-sync.js";
 import { SessionSearchEngine } from "../search/session-search.js";
+import { toValidSlug } from "../utils.js";
 interface ContextPullParams {
   query: string;
   category: "all" | "people" | "projects" | "goals" | "organizations" | "profile" | "commitments";
@@ -125,10 +126,7 @@ export function registerDonnaTools(
         };
       }
 
-      const slug = params.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
+      const slug = toValidSlug(params.name, "entity");
       const nowIso = new Date().toISOString();
 
       let targetFolder = path.join(bundlePath, params.category);

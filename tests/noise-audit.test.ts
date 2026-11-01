@@ -135,8 +135,8 @@ async function testNoiseElimination() {
 }
 
 function isAlwaysRelevant(slug: string): boolean {
-  // Persona is always valid context
-  return slug === "donna-paulsen";
+  // Persona and agent dossiers are always valid context
+  return slug === "donna-paulsen" || slug === "donna";
 }
 
 testNoiseElimination().catch((err) => {
