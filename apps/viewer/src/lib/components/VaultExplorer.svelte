@@ -19,6 +19,7 @@
   import PlusIcon from '@lucide/svelte/icons/plus';
   import GitGraphIcon from '@lucide/svelte/icons/git-graph';
   import PenToolIcon from '@lucide/svelte/icons/pen-tool';
+  import FolderTreePicker from '$lib/components/FolderTreePicker.svelte';
 
   interface Props {
     selectedId?: string | null;
@@ -154,6 +155,11 @@
 
   // CRUD Actions
   function openCreateFile(defaultFolder = '') {
+    if (!defaultFolder && selectedId && selectedId.includes('/')) {
+      const parts = selectedId.split('/');
+      parts.pop();
+      defaultFolder = parts.join('/');
+    }
     newFileFolder = defaultFolder;
     newFileName = '';
     newFileTitle = '';
@@ -613,22 +619,8 @@
         </div>
       </div>
 
-      <!-- Folder Target -->
-      <div class="flex flex-col gap-1">
-        <label for="target-folder-select" class="font-mono text-muted-foreground uppercase text-[10px]">Folder Tujuan</label>
-        <select
-          id="target-folder-select"
-          bind:value={newFileFolder}
-          class="bg-background border border-border rounded px-2.5 py-1.5 text-xs text-foreground"
-        >
-          <option value="">/ (Root Vault)</option>
-          {#each folderOptions as f (f)}
-            {#if f}
-              <option value={f}>/{f}</option>
-            {/if}
-          {/each}
-        </select>
-      </div>
+      <!-- Folder Target Tree Picker -->
+      <FolderTreePicker {tree} bind:selectedPath={newFileFolder} label="Pilih Folder Tujuan (Pohon Direktori)" />
 
       <!-- Nama Berkas (slug) -->
       <div class="flex flex-col gap-1">
@@ -704,21 +696,8 @@
         </div>
       {/if}
 
-      <div class="flex flex-col gap-1">
-        <label for="parent-folder-select" class="font-mono text-muted-foreground uppercase text-[10px]">Folder Induk</label>
-        <select
-          id="parent-folder-select"
-          bind:value={newFolderParent}
-          class="bg-background border border-border rounded px-2.5 py-1.5 text-xs text-foreground"
-        >
-          <option value="">/ (Root Vault)</option>
-          {#each folderOptions as f (f)}
-            {#if f}
-              <option value={f}>/{f}</option>
-            {/if}
-          {/each}
-        </select>
-      </div>
+      <!-- Folder Induk Tree Picker -->
+      <FolderTreePicker {tree} bind:selectedPath={newFolderParent} label="Pilih Folder Induk (Pohon Direktori)" />
 
       <div class="flex flex-col gap-1">
         <label for="new-folder-name-input" class="font-mono text-muted-foreground uppercase text-[10px]">Nama Folder</label>
