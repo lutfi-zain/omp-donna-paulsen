@@ -1158,10 +1158,10 @@
       eventSource.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
-          handleVaultUpdateEvent(payload);
-        } catch {
-          handleVaultUpdateEvent({ type: 'vault_updated' });
-        }
+          if (payload && payload.type === 'vault_updated') {
+            handleVaultUpdateEvent(payload);
+          }
+        } catch {}
       };
 
       eventSource.addEventListener('vault_updated', () => {
@@ -1179,11 +1179,9 @@
 
   function handleVaultUpdateEvent(payload) {
     el.syncStatus.classList.add('is-syncing');
-    showToast('Vault Synced · Data diperbarui');
-
     setTimeout(() => {
       el.syncStatus.classList.remove('is-syncing');
-    }, 2000);
+    }, 1500);
 
     // Refresh graph data in background
     loadVaultGraph();
