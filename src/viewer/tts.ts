@@ -1,5 +1,16 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import type { TTSRequest } from "./types.js";
 
+const CACHE_DIR = path.join(os.homedir(), ".donna/cache/tts");
+
+function ensureCacheDir(): void {
+  if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true, mode: 0o700 });
+  }
+}
 export interface VoiceOption {
   id: string;
   name: string;
@@ -51,9 +62,10 @@ export function normalizeRate(rate?: string): string {
 }
 
 /**
- * Streams Edge-TTS audio using uv run edge-tts directly via Bun.spawn
+ * Streams Edge-TTS audio with persistent SHA-256 disk cache and exact Content-Length.
+ * Detects text changes automatically via SHA-256 hash.
  */
-export function streamTTS(request: TTSRequest): Response {
+export async function streamTTS(request: TTSRequest): Promise<Response> {
   const cleanText = (request.text || "").trim().slice(0, MAX_TEXT_LENGTH);
   if (!cleanText) {
     return new Response(JSON.stringify({ error: "Missing or empty 'text' parameter" }), {
@@ -65,6 +77,33 @@ export function streamTTS(request: TTSRequest): Response {
   const voice = normalizeVoice(request.voice);
   const rate = normalizeRate(request.rate);
 
+  // Hash captures voice, rate, and exact text
+  // If text changes by even 1 character, the hash automatically changes!
+  const hash = crypto
+    .createHash("sha256")
+    .update(`${voice}:${rate}:${cleanText}`)
+    .digest("hex");
+
+  ensureCacheDir();
+  const cacheFilePath = path.join(CACHE_DIR, `${hash}.mp3`);
+
+  // 1. CACHE HIT: Return existing audio file with exact Content-Length!
+  if (fs.existsSync(cacheFilePath)) {
+    const file = Bun.file(cacheFilePath);
+    if (file.size > 0) {
+      return new Response(file, {
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Content-Length": String(file.size),
+          "Cache-Control": "public, max-age=31536000, immutable",
+          "X-TTS-Cache": "HIT",
+        },
+      });
+    }
+  }
+
+  // 2. CACHE MISS: Generate audio directly to cache file via edge-tts
+  const tempPath = path.join(CACHE_DIR, `${hash}.tmp.${Date.now()}`);
   try {
     const proc = Bun.spawn(
       [
@@ -80,23 +119,40 @@ export function streamTTS(request: TTSRequest): Response {
         "--text",
         cleanText,
         "--write-media",
-        "-",
+        tempPath,
       ],
       {
-        stdout: "pipe",
+        stdout: "ignore",
         stderr: "pipe",
       }
     );
 
-    return new Response(proc.stdout, {
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+      const errText = await new Response(proc.stderr).text();
+      console.error("[TTS] edge-tts process failed:", exitCode, errText);
+      try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+      return new Response(JSON.stringify({ error: "Edge-TTS generation failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Atomically commit temp file to cache file
+    fs.renameSync(tempPath, cacheFilePath);
+
+    const file = Bun.file(cacheFilePath);
+    return new Response(file, {
       headers: {
         "Content-Type": "audio/mpeg",
-        "Cache-Control": "no-cache, no-store",
-        "Transfer-Encoding": "chunked",
+        "Content-Length": String(file.size),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-TTS-Cache": "MISS",
       },
     });
   } catch (err) {
-    console.error("[TTS] Failed to spawn edge-tts process:", err);
+    console.error("[TTS] Failed to execute TTS:", err);
+    try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
     return new Response(JSON.stringify({ error: "Internal TTS execution failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

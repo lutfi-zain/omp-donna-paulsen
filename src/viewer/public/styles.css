@@ -1632,6 +1632,20 @@ select:focus:not(:focus-visible) {
   background-color: var(--accent-active);
 }
 
+.btn-tts-play.is-loading {
+  cursor: wait;
+  opacity: 0.9;
+}
+
+.icon-spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .tts-options {
   display: flex;
   align-items: center;

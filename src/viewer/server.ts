@@ -163,7 +163,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       const text = url.searchParams.get("text") || "";
       const voice = url.searchParams.get("voice") || undefined;
       const rate = url.searchParams.get("rate") || undefined;
-      return streamTTS({ text, voice, rate });
+      return await streamTTS({ text, voice, rate });
     }
 
     // TTS Voices Metadata API

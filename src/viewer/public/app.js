@@ -139,6 +139,7 @@
     ttsCurrentText: document.getElementById('tts-current-text'),
     ttsBtnPrev: document.getElementById('tts-btn-prev'),
     ttsBtnPlay: document.getElementById('tts-btn-play'),
+    ttsIconLoading: document.getElementById('tts-icon-loading'),
     ttsIconPlay: document.getElementById('tts-icon-play'),
     ttsIconPause: document.getElementById('tts-icon-pause'),
     ttsBtnNext: document.getElementById('tts-btn-next'),
@@ -234,7 +235,7 @@
     const sentenceElements = [];
 
     blocks.forEach(block => {
-      if (block.closest('pre') || block.closest('code') || block.closest('table')) return;
+      if (block.closest('pre') || block.closest('code') || block.closest('table') || block.closest('.katex-display')) return;
 
       const rawText = (block.innerText || block.textContent || '').trim();
       if (rawText.length <= 2) return;
@@ -242,6 +243,8 @@
       const sentenceList = splitIntoSentences(rawText);
       if (sentenceList.length === 0) return;
 
+      // ATOMIC TRANSACTION:
+      // We ONLY push to `sentences` if the corresponding elements are also pushed!
       if (block.children.length === 0) {
         block.innerHTML = sentenceList.map(sentence => {
           const idx = sentences.length;
@@ -253,26 +256,32 @@
           sentenceElements.push(span);
         });
       } else {
-        let blockHtml = block.innerHTML;
-        let allReplaced = true;
+        // Formatted block: test if all sentences can be cleanly wrapped
+        let canReplaceAll = true;
+        let candidateHtml = block.innerHTML;
 
         for (const sentence of sentenceList) {
-          if (blockHtml.includes(sentence)) {
-            const idx = sentences.length;
-            sentences.push(sentence);
-            blockHtml = blockHtml.replace(sentence, `<span class="tts-sentence" data-sentence-idx="${idx}">${sentence}</span>`);
-          } else {
-            allReplaced = false;
+          if (!candidateHtml.includes(sentence)) {
+            canReplaceAll = false;
             break;
           }
         }
 
-        if (allReplaced) {
-          block.innerHTML = blockHtml;
+        if (canReplaceAll) {
+          for (const sentence of sentenceList) {
+            const idx = sentences.length;
+            sentences.push(sentence);
+            candidateHtml = candidateHtml.replace(
+              sentence,
+              `<span class="tts-sentence" data-sentence-idx="${idx}">${sentence}</span>`
+            );
+          }
+          block.innerHTML = candidateHtml;
           block.querySelectorAll('.tts-sentence').forEach(span => {
             sentenceElements.push(span);
           });
         } else {
+          // Fallback: If tags overlap sentences, treat the whole block as ONE cohesive unit
           const idx = sentences.length;
           sentences.push(rawText);
           block.classList.add('tts-sentence');
@@ -1426,11 +1435,14 @@
     state.tts.sentenceElements = sentenceElements;
 
     // Interactive Click-to-Read on any sentence
-    sentenceElements.forEach((span, idx) => {
+    sentenceElements.forEach(span => {
       span.addEventListener('click', (e) => {
         if (e.target && e.target.tagName === 'A') return;
         e.stopPropagation();
-        startTTS(idx);
+        const clickedIdx = parseInt(span.getAttribute('data-sentence-idx'), 10);
+        if (!isNaN(clickedIdx) && clickedIdx >= 0 && clickedIdx < state.tts.sentences.length) {
+          startTTS(clickedIdx);
+        }
       });
     });
 
@@ -1639,8 +1651,48 @@
   }
 
   // ==========================================================================
-  // Edge-TTS Read Aloud Player Dock
+  // Edge-TTS Read Aloud Player Dock (State Machine & Caching Buffer)
   // ==========================================================================
+  function updateTTSPlayerUI(status) {
+    if (!el.ttsBtnPlay) return;
+
+    if (status === 'loading') {
+      if (el.ttsIconLoading) el.ttsIconLoading.hidden = false;
+      if (el.ttsIconPlay) el.ttsIconPlay.hidden = true;
+      if (el.ttsIconPause) el.ttsIconPause.hidden = true;
+      el.ttsBtnPlay.classList.add('is-loading');
+      el.ttsDock.classList.remove('is-paused');
+    } else if (status === 'playing') {
+      if (el.ttsIconLoading) el.ttsIconLoading.hidden = true;
+      if (el.ttsIconPlay) el.ttsIconPlay.hidden = true;
+      if (el.ttsIconPause) el.ttsIconPause.hidden = false;
+      el.ttsBtnPlay.classList.remove('is-loading');
+      el.ttsDock.classList.remove('is-paused');
+    } else if (status === 'paused') {
+      if (el.ttsIconLoading) el.ttsIconLoading.hidden = true;
+      if (el.ttsIconPlay) el.ttsIconPlay.hidden = false;
+      if (el.ttsIconPause) el.ttsIconPause.hidden = true;
+      el.ttsBtnPlay.classList.remove('is-loading');
+      el.ttsDock.classList.add('is-paused');
+    }
+  }
+
+  function prefetchNextSentences(currentIndex, lookahead = 2) {
+    for (let offset = 1; offset <= lookahead; offset++) {
+      const nextIdx = currentIndex + offset;
+      if (nextIdx < state.tts.sentences.length) {
+        const nextText = state.tts.sentences[nextIdx];
+        const nextParams = new URLSearchParams({
+          text: nextText,
+          voice: state.tts.voice,
+          rate: state.tts.rate
+        });
+        // Silent background fetch: triggers server-side disk generation & browser caching
+        fetch(`/api/tts?${nextParams.toString()}`).catch(() => {});
+      }
+    }
+  }
+
   function startTTS(fromIdx = 0) {
     if (!state.activeConcept || state.tts.sentences.length === 0) {
       showToast('Tidak ada kalimat untuk dibaca');
@@ -1659,13 +1711,14 @@
   function stopTTS() {
     if (state.tts.audioEl) {
       state.tts.audioEl.pause();
-      state.tts.audioEl.src = '';
+      state.tts.audioEl.removeAttribute('src');
+      state.tts.audioEl.load();
     }
     state.tts.active = false;
     state.tts.isPlaying = false;
     el.ttsDock.hidden = true;
     el.ttsDock.classList.remove('is-paused');
-    updatePlayPauseIcons(false);
+    updateTTSPlayerUI('paused');
     clearTTSHighlights();
   }
 
@@ -1678,8 +1731,7 @@
 
     const sentenceText = state.tts.sentences[state.tts.currentSentenceIndex];
     state.tts.isPlaying = true;
-    el.ttsDock.classList.remove('is-paused');
-    updatePlayPauseIcons(true);
+    updateTTSPlayerUI('loading');
 
     // Update status & text snippet
     el.ttsChunkStatus.textContent = `Kalimat ${state.tts.currentSentenceIndex + 1} dari ${state.tts.sentences.length}`;
@@ -1697,22 +1749,12 @@
 
     state.tts.audioEl.src = `/api/tts?${params.toString()}`;
     state.tts.audioEl.play().catch(err => {
-      console.warn('Autoplay audio dicegah oleh peramban:', err);
-      state.tts.isPlaying = false;
-      updatePlayPauseIcons(false);
-      el.ttsDock.classList.add('is-paused');
+      console.warn('Autoplay tertahan atau menunggu interaksi:', err);
+      updateTTSPlayerUI('paused');
     });
 
-    // Prefetch next sentence audio into browser cache
-    if (state.tts.currentSentenceIndex + 1 < state.tts.sentences.length) {
-      const nextText = state.tts.sentences[state.tts.currentSentenceIndex + 1];
-      const nextParams = new URLSearchParams({
-        text: nextText,
-        voice: state.tts.voice,
-        rate: state.tts.rate
-      });
-      fetch(`/api/tts?${nextParams.toString()}`).catch(() => {});
-    }
+    // Lookahead buffer: prefetch next 2 sentences in background!
+    prefetchNextSentences(state.tts.currentSentenceIndex, 2);
   }
 
   function toggleTTSPlayPause() {
@@ -1722,16 +1764,15 @@
     }
 
     if (state.tts.audioEl.paused) {
-      state.tts.audioEl.play().then(() => {
-        state.tts.isPlaying = true;
-        el.ttsDock.classList.remove('is-paused');
-        updatePlayPauseIcons(true);
-      }).catch(console.warn);
+      updateTTSPlayerUI('loading');
+      state.tts.audioEl.play().catch(err => {
+        console.warn('Play error:', err);
+        updateTTSPlayerUI('paused');
+      });
     } else {
       state.tts.audioEl.pause();
       state.tts.isPlaying = false;
-      el.ttsDock.classList.add('is-paused');
-      updatePlayPauseIcons(false);
+      updateTTSPlayerUI('paused');
     }
   }
 
@@ -1740,7 +1781,8 @@
       state.tts.currentSentenceIndex++;
       playCurrentSentence();
     } else {
-      showToast('Ini kalimat terakhir');
+      showToast('Selesai membaca seluruh kalimat');
+      stopTTS();
     }
   }
 
@@ -1749,11 +1791,6 @@
       state.tts.currentSentenceIndex--;
       playCurrentSentence();
     }
-  }
-
-  function updatePlayPauseIcons(isPlaying) {
-    el.ttsIconPlay.hidden = isPlaying;
-    el.ttsIconPause.hidden = !isPlaying;
   }
 
   function highlightTTSSentence(sentenceIdx) {
@@ -1771,19 +1808,38 @@
     });
   }
 
-  // Audio Event Listeners: advance to next sentence on audio end
+  // Audio Event Listeners (Native State Machine)
+  el.ttsAudioElement.addEventListener('loadstart', () => {
+    updateTTSPlayerUI('loading');
+  });
+
+  el.ttsAudioElement.addEventListener('waiting', () => {
+    updateTTSPlayerUI('loading');
+  });
+
+  el.ttsAudioElement.addEventListener('playing', () => {
+    state.tts.isPlaying = true;
+    updateTTSPlayerUI('playing');
+  });
+
+  el.ttsAudioElement.addEventListener('pause', () => {
+    if (state.tts.audioEl.currentTime < state.tts.audioEl.duration - 0.05) {
+      state.tts.isPlaying = false;
+      updateTTSPlayerUI('paused');
+    }
+  });
+
   el.ttsAudioElement.addEventListener('ended', () => {
-    if (state.tts.active && state.tts.isPlaying) {
+    if (state.tts.active) {
       nextTTSSentence();
     }
   });
 
   el.ttsAudioElement.addEventListener('error', (e) => {
     console.error('Audio playback error:', e);
-    showToast('Gagal memuat streaming audio Edge-TTS');
     state.tts.isPlaying = false;
-    updatePlayPauseIcons(false);
-    el.ttsDock.classList.add('is-paused');
+    updateTTSPlayerUI('paused');
+    showToast('Gagal memuat streaming audio');
   });
 
   // ==========================================================================
