@@ -1429,6 +1429,48 @@
 
     el.markdownBody.innerHTML = cleanHtml;
 
+    // Code Syntax Highlighting via Highlight.js & Copy Button Injection
+    if (typeof hljs !== 'undefined') {
+      el.markdownBody.querySelectorAll('pre code').forEach((block) => {
+        try {
+          hljs.highlightElement(block);
+        } catch (_) {}
+
+        const pre = block.parentElement;
+        if (pre && !pre.querySelector('.btn-copy-code')) {
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'btn-copy-code';
+          copyBtn.setAttribute('aria-label', 'Salin kode ke clipboard');
+          copyBtn.title = 'Salin kode';
+          copyBtn.innerHTML = `
+            <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13" aria-hidden="true">
+              <path d="M8 2a1 1 0 000 2h2a1 1 0 100-2H8z"/>
+              <path d="M3 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v6h-2V5H5v11h4a1 1 0 010 2H5a2 2 0 01-2-2V5z"/>
+              <path d="M15 8a1 1 0 00-1 1v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L16 14.586V9a1 1 0 00-1-1z"/>
+            </svg>
+            <span>Salin</span>
+          `;
+          copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const rawCode = block.innerText || block.textContent || '';
+            navigator.clipboard.writeText(rawCode).then(() => {
+              copyBtn.classList.add('is-copied');
+              const span = copyBtn.querySelector('span');
+              if (span) span.textContent = 'Tersalin!';
+              setTimeout(() => {
+                copyBtn.classList.remove('is-copied');
+                if (span) span.textContent = 'Salin';
+              }, 2000);
+            }).catch(() => {
+              showToast('Gagal menyalin kode');
+            });
+          });
+          pre.appendChild(copyBtn);
+        }
+      });
+    }
+
     // Prepare sentence-level wrapping for interactive reading & precise highlighting
     const { sentences, sentenceElements } = prepareSentencesForReading(el.markdownBody);
     state.tts.sentences = sentences;

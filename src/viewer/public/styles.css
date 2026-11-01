@@ -1196,19 +1196,69 @@ select:focus:not(:focus-visible) {
 }
 
 .markdown-body pre {
-  background-color: var(--bg-canvas);
+  position: relative;
+  background-color: #0b0f15 !important;
   border: 1px solid var(--border-default);
-  padding: 16px;
+  padding: 18px 20px;
+  margin: 22px 0;
   border-radius: var(--radius-md);
   overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 .markdown-body pre code {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-size: 0.9rem;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 0.86rem;
+  font-family: var(--font-mono);
+}
+
+.markdown-body pre code.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* Floating Copy Code Button */
+.btn-copy-code {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  height: 28px;
+  padding: 0 10px;
+  background-color: rgba(19, 27, 36, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 5;
+}
+
+.markdown-body pre:hover .btn-copy-code,
+.btn-copy-code:focus-visible {
+  opacity: 1;
+}
+
+.btn-copy-code:hover {
+  background-color: var(--bg-subtle);
   color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.btn-copy-code.is-copied {
+  color: var(--status-human);
+  border-color: var(--status-human);
 }
 
 .markdown-body a {
