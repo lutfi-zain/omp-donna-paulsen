@@ -385,7 +385,7 @@
           {/if}
 
           <!-- Quick Actions on Folder -->
-          <div class="opacity-0 group-hover/dir:opacity-100 group-focus-within/dir:opacity-100 flex items-center transition-opacity">
+          <div class="opacity-80 sm:opacity-0 sm:group-hover/dir:opacity-100 group-focus-within/dir:opacity-100 flex items-center transition-opacity">
             <button
               type="button"
               onclick={() => openCreateFile(node.path)}
@@ -570,7 +570,7 @@
 
 <!-- Modal: Buat Berkas Baru -->
 <Dialog.Root bind:open={createFileDialogOpen}>
-  <Dialog.Content class="bg-card border-border text-foreground sm:max-w-md">
+  <Dialog.Content class="bg-card border-border text-foreground sm:max-w-lg max-h-[88vh] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title class="text-base font-semibold">Buat Berkas Baru</Dialog.Title>
       <Dialog.Description class="text-xs text-muted-foreground">
@@ -681,7 +681,7 @@
 
 <!-- Modal: Buat Folder Baru -->
 <Dialog.Root bind:open={createFolderDialogOpen}>
-  <Dialog.Content class="bg-card border-border text-foreground sm:max-w-md">
+  <Dialog.Content class="bg-card border-border text-foreground sm:max-w-lg max-h-[88vh] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title class="text-base font-semibold">Buat Folder Baru</Dialog.Title>
       <Dialog.Description class="text-xs text-muted-foreground">
