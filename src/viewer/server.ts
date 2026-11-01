@@ -142,6 +142,12 @@ export async function handleRequest(req: Request): Promise<Response> {
       return Response.json(graph);
     }
 
+    // Vault Tree API
+    if (method === "GET" && pathname === "/api/vault/tree") {
+      const tree = vaultManager.getTree();
+      return Response.json(tree);
+    }
+
     // Single Concept API
     if (method === "GET" && pathname.startsWith("/api/vault/concept/")) {
       const conceptId = decodeURIComponent(pathname.slice("/api/vault/concept/".length));

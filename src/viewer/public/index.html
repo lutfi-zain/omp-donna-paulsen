@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#0d1117">
   <title>Donna OKF · Knowledge Graph & Reader</title>
 
-  <!-- Typography: Atkinson Hyperlegible (Prose) & JetBrains Mono (Code/Metadata) -->
+  <!-- Typography: Newsreader (Editorial Serif), Atkinson Hyperlegible (Prose) & JetBrains Mono (Code/Metadata) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap" rel="stylesheet">
 
   <!-- Core Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
@@ -19,8 +19,8 @@
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <link rel="stylesheet" href="styles.css?v=4">
-  <script src="app.js?v=4" defer></script>
+  <link rel="stylesheet" href="styles.css?v=5">
+  <script src="app.js?v=5" defer></script>
 </head>
 <body>
   <!-- App Container -->
@@ -70,50 +70,87 @@
 
     <!-- Main 2-Column Work Area -->
     <main class="app-main" id="main-content">
-      <!-- Left Column: Graph Visualizer -->
-      <section class="panel-graph" id="view-graph" aria-label="Visualisasi Graf OKF">
-        <div class="panel-toolbar">
-          <div class="toolbar-group">
-            <label for="graph-layout-select" class="sr-only">Tata Letak Graf</label>
-            <select id="graph-layout-select" class="form-select" aria-label="Pilih Tata Letak Graf">
-              <option value="cose">Force-Directed (Cose)</option>
-              <option value="concentric">Konsentris (Derajat)</option>
-              <option value="circle">Lingkaran</option>
-              <option value="breadthfirst">Hirarkis (Breadthfirst)</option>
-              <option value="grid">Kisi (Grid)</option>
-            </select>
-
-            <label for="graph-filter-select" class="sr-only">Filter Tipe Konsep</label>
-            <select id="graph-filter-select" class="form-select" aria-label="Filter Tipe Konsep">
-              <option value="all">Semua Tipe</option>
-            </select>
-          </div>
-
-          <div class="toolbar-group">
-            <button id="btn-fit-graph" class="btn-tool" type="button" title="Paskan Graf ke Layar" aria-label="Paskan Graf ke Layar">
-              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H5v3a1 1 0 01-2 0V4zm14 0a1 1 0 00-1-1h-4a1 1 0 100 2h3v3a1 1 0 102 0V4zM3 16a1 1 0 001 1h4a1 1 0 100-2H5v-3a1 1 0 10-2 0v4zm14 0a1 1 0 01-1 1h-4a1 1 0 110-2h3v-3a1 1 0 112 0v4z"/>
-              </svg>
-              <span>Fit</span>
+      <!-- Left Column: Sidebar (Explorer / Graph) -->
+      <section class="panel-sidebar" id="view-sidebar" aria-label="Navigasi Vault & Visualisasi">
+        <div class="sidebar-header">
+          <div class="view-switcher" role="tablist" aria-label="Pilihan Navigasi">
+            <button id="btn-switch-explorer" class="view-switch-btn is-active" role="tab" aria-selected="true" type="button">
+              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+              <span>Explorer</span>
             </button>
-            <button id="btn-zoom-in" class="btn-tool" type="button" title="Perbesar" aria-label="Perbesar">
-              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
-              </svg>
-            </button>
-            <button id="btn-zoom-out" class="btn-tool" type="button" title="Perkecil" aria-label="Perkecil">
-              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                <path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" />
-              </svg>
+            <button id="btn-switch-graph" class="view-switch-btn" role="tab" aria-selected="false" type="button">
+              <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true"><circle cx="5" cy="5" r="3"/><circle cx="15" cy="5" r="3"/><circle cx="10" cy="15" r="3"/><path d="M5 5l5 10m5-10l-5 10"/></svg>
+              <span>Graph</span>
             </button>
           </div>
         </div>
 
-        <!-- Cytoscape Canvas Container -->
-        <div id="cy" class="cy-container" role="region" aria-label="Graf Interaktif Cytoscape"></div>
+        <!-- Explorer View Container -->
+        <div id="container-explorer" class="sidebar-view-explorer">
+          <div class="explorer-toolbar">
+            <div class="explorer-search-wrapper">
+              <svg class="icon explorer-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+              </svg>
+              <input type="search" id="explorer-filter-input" class="explorer-filter" placeholder="Filter berkas..." aria-label="Filter berkas vault" />
+            </div>
+            <div class="explorer-actions">
+              <button id="btn-collapse-all" class="btn-tree-action" type="button" title="Tutup Semua Folder" aria-label="Tutup Semua Folder">
+                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+              </button>
+              <button id="btn-expand-all" class="btn-tree-action" type="button" title="Buka Semua Folder" aria-label="Buka Semua Folder">
+                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+          <div id="vault-tree-root" class="vault-tree-root" role="tree" aria-label="Pohon Berkas Vault"></div>
+        </div>
 
-        <!-- Graph Legend -->
-        <div class="graph-legend" id="graph-legend" aria-label="Legenda Tipe Konsep"></div>
+        <!-- Graph View Container -->
+        <div id="container-graph" class="sidebar-view-graph" hidden>
+          <div class="panel-toolbar">
+            <div class="toolbar-group">
+              <label for="graph-layout-select" class="sr-only">Tata Letak Graf</label>
+              <select id="graph-layout-select" class="form-select" aria-label="Pilih Tata Letak Graf">
+                <option value="cose">Force-Directed (Cose)</option>
+                <option value="concentric">Konsentris (Derajat)</option>
+                <option value="circle">Lingkaran</option>
+                <option value="breadthfirst">Hirarkis (Breadthfirst)</option>
+                <option value="grid">Kisi (Grid)</option>
+              </select>
+
+              <label for="graph-filter-select" class="sr-only">Filter Tipe Konsep</label>
+              <select id="graph-filter-select" class="form-select" aria-label="Filter Tipe Konsep">
+                <option value="all">Semua Tipe</option>
+              </select>
+            </div>
+
+            <div class="toolbar-group">
+              <button id="btn-fit-graph" class="btn-tool" type="button" title="Paskan Graf ke Layar" aria-label="Paskan Graf ke Layar">
+                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                  <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H5v3a1 1 0 01-2 0V4zm14 0a1 1 0 00-1-1h-4a1 1 0 100 2h3v3a1 1 0 102 0V4zM3 16a1 1 0 001 1h4a1 1 0 100-2H5v-3a1 1 0 10-2 0v4zm14 0a1 1 0 01-1 1h-4a1 1 0 110-2h3v-3a1 1 0 112 0v4z"/>
+                </svg>
+                <span>Fit</span>
+              </button>
+              <button id="btn-zoom-in" class="btn-tool" type="button" title="Perbesar" aria-label="Perbesar">
+                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <button id="btn-zoom-out" class="btn-tool" type="button" title="Perkecil" aria-label="Perkecil">
+                <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cytoscape Canvas Container -->
+          <div id="cy" class="cy-container" role="region" aria-label="Graf Interaktif Cytoscape"></div>
+
+          <!-- Graph Legend -->
+          <div class="graph-legend" id="graph-legend" aria-label="Legenda Tipe Konsep"></div>
+        </div>
       </section>
 
       <!-- Right Column: Concept Reader -->
@@ -178,7 +215,14 @@
 
     <!-- Mobile Navigation Bottom Tabs (≤768px) -->
     <nav class="mobile-tabs" aria-label="Navigasi Tampilan Layar Ponsel">
-      <button id="tab-graph" class="mobile-tab-btn is-active" type="button" aria-selected="true" aria-controls="view-graph">
+      <button id="tab-explorer" class="mobile-tab-btn is-active" type="button" aria-selected="true" aria-controls="view-sidebar">
+        <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="20" height="20" aria-hidden="true">
+          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+        </svg>
+        <span>Explorer</span>
+      </button>
+
+      <button id="tab-graph" class="mobile-tab-btn" type="button" aria-selected="false" aria-controls="view-sidebar">
         <svg class="icon" viewBox="0 0 20 20" fill="currentColor" width="20" height="20" aria-hidden="true">
           <circle cx="5" cy="5" r="3" />
           <circle cx="15" cy="8" r="3" />

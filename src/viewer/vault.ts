@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import * as yaml from "js-yaml";
-import type { OKFConcept, OKFEdge, OKFGraph, OKFGraphStats } from "./types.js";
+import type { OKFConcept, OKFEdge, OKFGraph, OKFGraphStats, VaultTreeNode } from "./types.js";
 
 export const DEFAULT_VAULT_PATH =
   process.env.DONNA_VAULT_PATH || path.join(os.homedir(), ".donna/vault/.okf");
@@ -215,11 +215,92 @@ export function buildGraph(vaultDir: string = DEFAULT_VAULT_PATH): OKFGraph {
     types,
   };
 
+  const tree = buildVaultTree(concepts);
+
   return {
     nodes: concepts,
     edges,
     stats,
+    tree,
   };
+}
+
+/**
+ * Build recursive folder tree from concepts
+ */
+export function buildVaultTree(concepts: OKFConcept[]): VaultTreeNode[] {
+  interface TempDir {
+    id: string;
+    name: string;
+    path: string;
+    dirs: Map<string, TempDir>;
+    files: VaultTreeNode[];
+  }
+
+  const root: TempDir = {
+    id: "",
+    name: "root",
+    path: "",
+    dirs: new Map(),
+    files: [],
+  };
+
+  for (const concept of concepts) {
+    const segments = concept.id.split("/");
+    const fileName = segments.pop() || concept.id;
+    let currentDir = root;
+
+    let accumulatedPath = "";
+    for (const segment of segments) {
+      accumulatedPath = accumulatedPath ? `${accumulatedPath}/${segment}` : segment;
+      if (!currentDir.dirs.has(segment)) {
+        currentDir.dirs.set(segment, {
+          id: accumulatedPath,
+          name: segment,
+          path: accumulatedPath,
+          dirs: new Map(),
+          files: [],
+        });
+      }
+      currentDir = currentDir.dirs.get(segment)!;
+    }
+
+    currentDir.files.push({
+      id: concept.id,
+      name: fileName,
+      path: concept.path,
+      type: "file",
+      conceptId: concept.id,
+      conceptType: concept.type,
+      title: concept.title,
+    });
+  }
+
+  function convert(dir: TempDir): VaultTreeNode {
+    const childrenDirs = Array.from(dir.dirs.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(convert);
+
+    const sortedFiles = dir.files.sort((a, b) =>
+      (a.title || a.name).localeCompare(b.title || b.name)
+    );
+
+    let totalCount = sortedFiles.length;
+    for (const childDir of childrenDirs) {
+      totalCount += childDir.count || 0;
+    }
+
+    return {
+      id: dir.id,
+      name: dir.name,
+      path: dir.path,
+      type: "directory",
+      count: totalCount,
+      children: [...childrenDirs, ...sortedFiles],
+    };
+  }
+
+  return convert(root).children || [];
 }
 
 /**
@@ -260,6 +341,10 @@ export class VaultManager {
       return this.reload();
     }
     return this.cachedGraph;
+  }
+
+  public getTree(): VaultTreeNode[] {
+    return this.getGraph().tree || [];
   }
 
   public getConcept(idOrSlug: string): OKFConcept | null {

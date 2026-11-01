@@ -27,13 +27,17 @@
   const state = {
     currentUser: null,
     graphData: null,
+    vaultTree: null,
+    activeViewMode: 'explorer',
+    expandedFolders: new Set(),
+    treeFilterQuery: '',
     activeConceptId: null,
     activeConcept: null,
     fuseIndex: null,
     cy: null,
     activeFilterType: 'all',
     activeLayout: 'cose',
-    activeTab: 'graph',
+    activeTab: 'explorer',
     tts: {
       active: false,
       conceptId: null,
@@ -52,6 +56,17 @@
     }
   };
 
+  // Restore expanded folders from localStorage
+  try {
+    const savedFolders = localStorage.getItem('donna_expanded_folders');
+    if (savedFolders) {
+      const parsed = JSON.parse(savedFolders);
+      if (Array.isArray(parsed)) {
+        state.expandedFolders = new Set(parsed);
+      }
+    }
+  } catch (_) {}
+
   // ==========================================================================
   // DOM Elements Cache
   // ==========================================================================
@@ -67,10 +82,22 @@
     logoutBtn: document.getElementById('logout-btn'),
     syncStatus: document.getElementById('sync-status'),
 
-    // Main views
-    viewGraph: document.getElementById('view-graph'),
+    // Main views & Sidebar
+    viewSidebar: document.getElementById('view-sidebar') || document.getElementById('view-graph'),
+    viewGraph: document.getElementById('view-graph') || document.getElementById('view-sidebar'),
     viewReader: document.getElementById('view-reader'),
 
+    // View Switcher & Containers
+    btnSwitchExplorer: document.getElementById('btn-switch-explorer'),
+    btnSwitchGraph: document.getElementById('btn-switch-graph'),
+    containerExplorer: document.getElementById('container-explorer'),
+    containerGraph: document.getElementById('container-graph'),
+
+    // Explorer Tree Elements
+    explorerFilterInput: document.getElementById('explorer-filter-input'),
+    btnCollapseAll: document.getElementById('btn-collapse-all'),
+    btnExpandAll: document.getElementById('btn-expand-all'),
+    vaultTreeRoot: document.getElementById('vault-tree-root'),
     // Graph Controls
     graphLayoutSelect: document.getElementById('graph-layout-select'),
     graphFilterSelect: document.getElementById('graph-filter-select'),
@@ -97,10 +124,10 @@
     backlinksList: document.getElementById('backlinks-list'),
 
     // Mobile Tabs
+    tabExplorer: document.getElementById('tab-explorer'),
     tabGraph: document.getElementById('tab-graph'),
     tabReader: document.getElementById('tab-reader'),
     tabSearch: document.getElementById('tab-search'),
-
     // Floating TTS Dock
     ttsDock: document.getElementById('tts-dock'),
     ttsChunkStatus: document.getElementById('tts-chunk-status'),
@@ -160,6 +187,281 @@
       return d.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' });
     } catch {
       return isoStr;
+    }
+  }
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function saveExpandedFolders() {
+    try {
+      localStorage.setItem('donna_expanded_folders', JSON.stringify(Array.from(state.expandedFolders)));
+    } catch (_) {}
+  }
+
+  // ==========================================================================
+  // Vault Folder Explorer & Tree Navigation
+  // ==========================================================================
+
+  /**
+   * Filter tree recursively by search query
+   */
+  function filterTree(nodes, query) {
+    if (!query) return nodes;
+    const filtered = [];
+
+    for (const node of nodes) {
+      if (node.type === 'directory') {
+        const dirName = (node.name || '').toLowerCase();
+        const dirPath = (node.path || '').toLowerCase();
+        const nameMatches = dirName.includes(query) || dirPath.includes(query);
+
+        const filteredChildren = filterTree(node.children || [], query);
+        if (nameMatches || filteredChildren.length > 0) {
+          filtered.push({
+            ...node,
+            children: (nameMatches && filteredChildren.length === 0) ? (node.children || []) : filteredChildren,
+            _forceExpanded: true
+          });
+        }
+      } else {
+        const title = (node.title || node.name || '').toLowerCase();
+        const id = (node.conceptId || node.id || '').toLowerCase();
+        const type = (node.conceptType || '').toLowerCase();
+        if (title.includes(query) || id.includes(query) || type.includes(query)) {
+          filtered.push(node);
+        }
+      }
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Render recursive Vault Tree into container
+   */
+  function renderVaultTree(treeData, container, filterText = '') {
+    if (!container || !treeData) return;
+
+    const query = (filterText || '').toLowerCase().trim();
+    const nodesToRender = query ? filterTree(treeData, query) : treeData;
+
+    if (!nodesToRender || nodesToRender.length === 0) {
+      container.innerHTML = `
+        <div class="tree-empty-state">
+          <p class="tree-empty-text">${query ? 'Tidak ada berkas yang cocok.' : 'Vault kosong.'}</p>
+        </div>
+      `;
+      return;
+    }
+
+    function renderNodes(nodes, depth = 0) {
+      let html = '';
+      for (const node of nodes) {
+        if (node.type === 'directory') {
+          const isExpanded = node._forceExpanded || state.expandedFolders.has(node.path || node.id);
+          const children = node.children || [];
+          const folderPath = node.path || node.id || node.name;
+          const count = node.count !== undefined ? node.count : children.length;
+
+          html += `
+            <div class="tree-folder" data-path="${escapeHtml(folderPath)}">
+              <div class="tree-folder-row" data-path="${escapeHtml(folderPath)}" aria-expanded="${isExpanded ? 'true' : 'false'}" style="--depth: ${depth}; padding-left: calc(${depth} * 16px + 10px);" role="treeitem">
+                <svg class="tree-chevron ${isExpanded ? 'is-expanded' : ''}" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <svg class="tree-icon tree-folder-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                </svg>
+                <span class="tree-folder-name">${escapeHtml(node.name)}</span>
+                <span class="tree-count-badge">${count}</span>
+              </div>
+              <div class="tree-folder-children" style="display: ${isExpanded ? 'block' : 'none'};" role="group">
+                ${renderNodes(children, depth + 1)}
+              </div>
+            </div>
+          `;
+        } else {
+          const conceptId = node.conceptId || node.id;
+          const isActive = state.activeConceptId === conceptId;
+          const conceptType = node.conceptType || '';
+          const typeColor = getTypeColor(conceptType);
+          const title = node.title || node.name || conceptId;
+
+          html += `
+            <div class="tree-file-row ${isActive ? 'is-active' : ''}" data-id="${escapeHtml(conceptId)}" data-concept-type="${escapeHtml(conceptType)}" style="--depth: ${depth}; padding-left: calc(${depth} * 16px + 28px);" role="treeitem" tabindex="0">
+              <svg class="tree-icon tree-file-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+              </svg>
+              <span class="tree-file-title" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+              ${conceptType ? `<span class="tree-type-badge" style="color: ${typeColor}; border-color: ${typeColor};"><span class="tree-type-dot" style="background-color: ${typeColor};"></span>${escapeHtml(conceptType)}</span>` : ''}
+            </div>
+          `;
+        }
+      }
+      return html;
+    }
+
+    container.innerHTML = renderNodes(nodesToRender, 0);
+  }
+
+  /**
+   * Collapse all folders
+   */
+  function collapseAllFolders() {
+    state.expandedFolders.clear();
+    saveExpandedFolders();
+    if (!el.vaultTreeRoot) return;
+    const folderRows = el.vaultTreeRoot.querySelectorAll('.tree-folder-row');
+    folderRows.forEach(row => {
+      row.setAttribute('aria-expanded', 'false');
+      const chevron = row.querySelector('.tree-chevron');
+      if (chevron) chevron.classList.remove('is-expanded');
+    });
+    const childrenContainers = el.vaultTreeRoot.querySelectorAll('.tree-folder-children');
+    childrenContainers.forEach(container => {
+      container.style.display = 'none';
+    });
+  }
+
+  /**
+   * Expand all folders
+   */
+  function expandAllFolders() {
+    function collectPaths(nodes) {
+      if (!nodes) return;
+      for (const n of nodes) {
+        if (n.type === 'directory') {
+          const p = n.path || n.id || n.name;
+          if (p) state.expandedFolders.add(p);
+          if (n.children) collectPaths(n.children);
+        }
+      }
+    }
+    if (state.vaultTree) {
+      collectPaths(state.vaultTree);
+    }
+    saveExpandedFolders();
+    if (!el.vaultTreeRoot) return;
+    const folderRows = el.vaultTreeRoot.querySelectorAll('.tree-folder-row');
+    folderRows.forEach(row => {
+      row.setAttribute('aria-expanded', 'true');
+      const chevron = row.querySelector('.tree-chevron');
+      if (chevron) chevron.classList.add('is-expanded');
+    });
+    const childrenContainers = el.vaultTreeRoot.querySelectorAll('.tree-folder-children');
+    childrenContainers.forEach(container => {
+      container.style.display = 'block';
+    });
+  }
+
+  /**
+   * Sync active concept highlighting in Explorer tree and scroll into view
+   */
+  function syncExplorerActiveConcept(conceptId) {
+    if (!el.vaultTreeRoot || !conceptId) return;
+
+    // 1. Remove active class from all file rows
+    const activeRows = el.vaultTreeRoot.querySelectorAll('.tree-file-row.is-active');
+    activeRows.forEach(row => row.classList.remove('is-active'));
+
+    // 2. Find row matching conceptId
+    let targetRow = null;
+    const allFileRows = el.vaultTreeRoot.querySelectorAll('.tree-file-row');
+    for (const row of allFileRows) {
+      const id = row.getAttribute('data-id');
+      if (id === conceptId || id === decodeURIComponent(conceptId) || encodeURIComponent(id) === conceptId) {
+        targetRow = row;
+        break;
+      }
+    }
+
+    if (targetRow) {
+      targetRow.classList.add('is-active');
+
+      // 3. Auto-expand all ancestor folder rows leading to that file
+      let ancestor = targetRow.parentElement;
+      let expandedAny = false;
+      while (ancestor && ancestor !== el.vaultTreeRoot) {
+        if (ancestor.classList && ancestor.classList.contains('tree-folder-children')) {
+          ancestor.style.display = 'block';
+          const folderRow = ancestor.previousElementSibling;
+          if (folderRow && folderRow.classList.contains('tree-folder-row')) {
+            folderRow.setAttribute('aria-expanded', 'true');
+            const chevron = folderRow.querySelector('.tree-chevron');
+            if (chevron) chevron.classList.add('is-expanded');
+            const path = folderRow.getAttribute('data-path');
+            if (path && !state.expandedFolders.has(path)) {
+              state.expandedFolders.add(path);
+              expandedAny = true;
+            }
+          }
+        }
+        ancestor = ancestor.parentElement;
+      }
+
+      if (expandedAny) {
+        saveExpandedFolders();
+      }
+
+      // 4. Scroll active item into view inside tree panel smoothly
+      try {
+        targetRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (_) {
+        targetRow.scrollIntoView(false);
+      }
+    }
+  }
+
+  /**
+   * Switch view mode between Explorer and Graph
+   */
+  function switchViewMode(mode) {
+    state.activeViewMode = mode;
+
+    if (mode === 'explorer') {
+      if (el.btnSwitchExplorer) {
+        el.btnSwitchExplorer.classList.add('is-active');
+        el.btnSwitchExplorer.setAttribute('aria-selected', 'true');
+      }
+      if (el.btnSwitchGraph) {
+        el.btnSwitchGraph.classList.remove('is-active');
+        el.btnSwitchGraph.setAttribute('aria-selected', 'false');
+      }
+      if (el.containerExplorer) el.containerExplorer.hidden = false;
+      if (el.containerGraph) el.containerGraph.hidden = true;
+
+      // Scroll active item into view if selected
+      if (state.activeConceptId) {
+        syncExplorerActiveConcept(state.activeConceptId);
+      }
+    } else if (mode === 'graph') {
+      if (el.btnSwitchGraph) {
+        el.btnSwitchGraph.classList.add('is-active');
+        el.btnSwitchGraph.setAttribute('aria-selected', 'true');
+      }
+      if (el.btnSwitchExplorer) {
+        el.btnSwitchExplorer.classList.remove('is-active');
+        el.btnSwitchExplorer.setAttribute('aria-selected', 'false');
+      }
+      if (el.containerGraph) el.containerGraph.hidden = false;
+      if (el.containerExplorer) el.containerExplorer.hidden = true;
+
+      // Cytoscape resize and fit
+      if (state.cy) {
+        state.cy.resize();
+        if (state.activeConceptId) {
+          focusNodeInGraph(state.activeConceptId);
+        } else {
+          state.cy.fit();
+        }
+      }
     }
   }
 
@@ -315,6 +617,36 @@
       el.statConcepts.textContent = graph.stats ? graph.stats.concepts : graph.nodes.length;
       el.statEdges.textContent = graph.stats ? graph.stats.edges : graph.edges.length;
 
+      // Check if data.tree is returned, or fetch /api/vault/tree
+      if (graph.tree && Array.isArray(graph.tree)) {
+        state.vaultTree = graph.tree;
+      } else {
+        try {
+          const treeRes = await fetch('/api/vault/tree', { credentials: 'include' });
+          if (treeRes.ok) {
+            state.vaultTree = await treeRes.json();
+          }
+        } catch (treeErr) {
+          console.warn('Gagal memuat /api/vault/tree:', treeErr);
+        }
+      }
+
+      // Expand top-level folders on initial load if no user preferences are saved
+      if (state.expandedFolders.size === 0 && state.vaultTree && Array.isArray(state.vaultTree)) {
+        state.vaultTree.forEach(node => {
+          if (node.type === 'directory') {
+            const p = node.path || node.id || node.name;
+            if (p) state.expandedFolders.add(p);
+          }
+        });
+        saveExpandedFolders();
+      }
+
+      // Render Vault Tree
+      if (state.vaultTree && el.vaultTreeRoot) {
+        renderVaultTree(state.vaultTree, el.vaultTreeRoot, state.treeFilterQuery);
+      }
+
       // Populate filter dropdowns & legend
       populateTypeFilters(graph.stats.types || []);
       renderGraphLegend(graph.stats.types || []);
@@ -327,6 +659,11 @@
 
       // Deep link navigation
       handleHashNavigation();
+
+      // Sync active concept if selected
+      if (state.activeConceptId) {
+        syncExplorerActiveConcept(state.activeConceptId);
+      }
     } catch (err) {
       console.error('Error loadVaultGraph:', err);
       showToast('Gagal memuat graf pengetahuan.');
@@ -621,8 +958,8 @@
   }
 
   function focusNodeInGraph(nodeId) {
-    if (!state.cy) return;
-    const node = state.cy.getElementById(nodeId);
+    if (!state.cy || !nodeId) return;
+    const node = state.cy.$id(nodeId);
     if (node && node.length > 0) {
       state.cy.nodes().unselect();
       node.select();
@@ -677,6 +1014,7 @@
     state.activeConcept = concept;
     renderConceptView(concept);
     focusNodeInGraph(concept.id);
+    syncExplorerActiveConcept(concept.id);
   }
 
   function renderConceptView(concept) {
@@ -1198,21 +1536,31 @@
   function switchMobileTab(tab) {
     state.activeTab = tab;
 
-    el.tabGraph.classList.toggle('is-active', tab === 'graph');
-    el.tabGraph.setAttribute('aria-selected', tab === 'graph' ? 'true' : 'false');
+    if (el.tabExplorer) {
+      el.tabExplorer.classList.toggle('is-active', tab === 'explorer');
+      el.tabExplorer.setAttribute('aria-selected', tab === 'explorer' ? 'true' : 'false');
+    }
+    if (el.tabGraph) {
+      el.tabGraph.classList.toggle('is-active', tab === 'graph');
+      el.tabGraph.setAttribute('aria-selected', tab === 'graph' ? 'true' : 'false');
+    }
+    if (el.tabReader) {
+      el.tabReader.classList.toggle('is-active', tab === 'reader');
+      el.tabReader.setAttribute('aria-selected', tab === 'reader' ? 'true' : 'false');
+    }
 
-    el.tabReader.classList.toggle('is-active', tab === 'reader');
-    el.tabReader.setAttribute('aria-selected', tab === 'reader' ? 'true' : 'false');
-
-    if (tab === 'graph') {
-      el.viewGraph.classList.remove('is-hidden');
-      el.viewReader.classList.add('is-hidden');
-      if (state.cy) {
-        state.cy.resize();
-      }
+    const sidebar = el.viewSidebar || el.viewGraph;
+    if (tab === 'explorer') {
+      if (sidebar) sidebar.classList.remove('is-hidden');
+      if (el.viewReader) el.viewReader.classList.add('is-hidden');
+      switchViewMode('explorer');
+    } else if (tab === 'graph') {
+      if (sidebar) sidebar.classList.remove('is-hidden');
+      if (el.viewReader) el.viewReader.classList.add('is-hidden');
+      switchViewMode('graph');
     } else if (tab === 'reader') {
-      el.viewGraph.classList.add('is-hidden');
-      el.viewReader.classList.remove('is-hidden');
+      if (sidebar) sidebar.classList.add('is-hidden');
+      if (el.viewReader) el.viewReader.classList.remove('is-hidden');
     }
   }
 
@@ -1258,6 +1606,91 @@
         }
       }
     });
+    // View Switcher (Explorer vs Graph)
+    if (el.btnSwitchExplorer) {
+      el.btnSwitchExplorer.addEventListener('click', () => switchViewMode('explorer'));
+    }
+    if (el.btnSwitchGraph) {
+      el.btnSwitchGraph.addEventListener('click', () => switchViewMode('graph'));
+    }
+
+    // Tree Collapse/Expand All Buttons
+    if (el.btnCollapseAll) {
+      el.btnCollapseAll.addEventListener('click', () => collapseAllFolders());
+    }
+    if (el.btnExpandAll) {
+      el.btnExpandAll.addEventListener('click', () => expandAllFolders());
+    }
+
+    // Explorer Filter Input
+    if (el.explorerFilterInput) {
+      el.explorerFilterInput.addEventListener('input', (e) => {
+        state.treeFilterQuery = e.target.value.trim();
+        if (state.vaultTree && el.vaultTreeRoot) {
+          renderVaultTree(state.vaultTree, el.vaultTreeRoot, state.treeFilterQuery);
+          if (state.activeConceptId) {
+            syncExplorerActiveConcept(state.activeConceptId);
+          }
+        }
+      });
+    }
+
+    // Explorer Tree Event Delegation
+    if (el.vaultTreeRoot) {
+      el.vaultTreeRoot.addEventListener('click', (e) => {
+        // Folder row toggle
+        const folderRow = e.target.closest('.tree-folder-row');
+        if (folderRow) {
+          const path = folderRow.getAttribute('data-path');
+          const isExpanded = folderRow.getAttribute('aria-expanded') === 'true';
+          const nextState = !isExpanded;
+          folderRow.setAttribute('aria-expanded', nextState ? 'true' : 'false');
+          const chevron = folderRow.querySelector('.tree-chevron');
+          if (chevron) chevron.classList.toggle('is-expanded', nextState);
+
+          const children = folderRow.nextElementSibling;
+          if (children) {
+            children.style.display = nextState ? 'block' : 'none';
+          }
+          if (nextState) {
+            state.expandedFolders.add(path);
+          } else {
+            state.expandedFolders.delete(path);
+          }
+          saveExpandedFolders();
+          return;
+        }
+
+        // File row click -> selectConcept
+        const fileRow = e.target.closest('.tree-file-row');
+        if (fileRow) {
+          const conceptId = fileRow.getAttribute('data-id');
+          if (conceptId) {
+            selectConcept(conceptId);
+            if (window.innerWidth <= 1023) {
+              switchMobileTab('reader');
+            }
+          }
+        }
+      });
+
+      // Keyboard selection on tree file rows
+      el.vaultTreeRoot.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const fileRow = e.target.closest('.tree-file-row');
+          if (fileRow) {
+            e.preventDefault();
+            const conceptId = fileRow.getAttribute('data-id');
+            if (conceptId) {
+              selectConcept(conceptId);
+              if (window.innerWidth <= 1023) {
+                switchMobileTab('reader');
+              }
+            }
+          }
+        }
+      });
+    }
 
     // Graph Controls
     el.graphLayoutSelect.addEventListener('change', (e) => {
@@ -1328,10 +1761,18 @@
     });
 
     // Mobile Tabs
-    el.tabGraph.addEventListener('click', () => switchMobileTab('graph'));
-    el.tabReader.addEventListener('click', () => switchMobileTab('reader'));
-    el.tabSearch.addEventListener('click', () => openSearchDialog());
-
+    if (el.tabExplorer) {
+      el.tabExplorer.addEventListener('click', () => switchMobileTab('explorer'));
+    }
+    if (el.tabGraph) {
+      el.tabGraph.addEventListener('click', () => switchMobileTab('graph'));
+    }
+    if (el.tabReader) {
+      el.tabReader.addEventListener('click', () => switchMobileTab('reader'));
+    }
+    if (el.tabSearch) {
+      el.tabSearch.addEventListener('click', () => openSearchDialog());
+    }
     // User logout
     el.logoutBtn.addEventListener('click', () => handleLogout());
 

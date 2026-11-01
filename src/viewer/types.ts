@@ -15,6 +15,18 @@ export interface OKFConcept {
   backlinks?: string[];
   metadata?: Record<string, unknown>;
 }
+export interface VaultTreeNode {
+  id: string;
+  name: string;
+  path: string;
+  type: "directory" | "file";
+  conceptId?: string;
+  conceptType?: string;
+  title?: string;
+  count?: number;
+  children?: VaultTreeNode[];
+}
+
 
 export interface OKFEdge {
   source: string;
@@ -32,6 +44,7 @@ export interface OKFGraph {
   nodes: OKFConcept[];
   edges: OKFEdge[];
   stats: OKFGraphStats;
+  tree?: VaultTreeNode[];
 }
 
 export interface UserSession {
